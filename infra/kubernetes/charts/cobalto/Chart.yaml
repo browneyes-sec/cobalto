@@ -1,0 +1,17 @@
+apiVersion: v2
+name: cobalto
+description: Agentic SOC/MDR Open Source Platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+maintainers:
+  - name: Cobalto Team
+    email: team@cobalto.io
+keywords:
+  - security
+  - soc
+  - siem
+  - soar
+  - mdr
+  - agentic
+  - ai
