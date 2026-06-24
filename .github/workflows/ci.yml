@@ -144,12 +144,12 @@ jobs:
           tags: ghcr.io/${{ github.repository }}/langgraph-api:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Build and push agent-service
+      - name: Build and push mcp-bridge
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: services/agents/Dockerfile
+          file: services/mcp-bridge/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}/agent-service:latest
+          tags: ghcr.io/${{ github.repository }}/mcp-bridge:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

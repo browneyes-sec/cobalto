@@ -183,3 +183,172 @@ Provide your hunt results as:
 - **Findings**: What was discovered
 - **Verdict**: [Hypothesis Confirmed | Inconclusive | Hypothesis Rejected]
 - **Recommendations**: Next steps or detection improvements"""
+
+
+@mcp_prompt(
+    name="cortex_analyze",
+    description="Analyze an observable using Cortex",
+    arguments=[
+        {"name": "observable", "description": "Observable to analyze (IP, hash, domain)", "required": True},
+        {"name": "analyzer_id", "description": "Specific analyzer to use (optional)", "required": False},
+    ],
+    tags=["cortex", "analysis"],
+)
+async def cortex_analyze_prompt(observable: str, analyzer_id: Optional[str] = None) -> str:
+    """Generate Cortex analysis prompt."""
+    analyzer_instruction = f"Use analyzer: {analyzer_id}" if analyzer_id else "Select the most appropriate analyzer for this observable type."
+
+    return f"""You are a malware analyst using Cortex to analyze a suspicious observable.
+
+Observable: {observable}
+{analyzer_instruction}
+
+## Analysis Steps:
+1. **Select analyzer**: Choose the appropriate analyzer for this observable type
+2. **Run analysis**: Execute the analyzer via `cortex_analyze_observable`
+3. **Wait for results**: Poll job status until complete
+4. **Review report**: Analyze the full report via `cortex_get_job_report`
+5. **Document findings**: Record analysis results
+
+## Observable Types:
+- IP Address: Use IP analyzers (VirusTotal, AbuseIPDB, Shodan)
+- File Hash: Use file analyzers (VirusTotal, YARA, Capa)
+- Domain/URL: Use domain analyzers (VirusTotal, URLhaus)
+
+## Output Format:
+Provide your analysis as:
+- **Observable**: {observable}
+- **Analysis Status**: [Malicious | Suspicious | Benign | Unknown]
+- **Confidence**: [Low | Medium | High]
+- **Indicators Found**: Any additional IOCs discovered
+- **MITRE Techniques**: Associated attack techniques
+- **Recommended Actions**: Next steps based on analysis"""
+
+
+@mcp_prompt(
+    name="opencti_hunt",
+    description="Hunt for threats using OpenCTI",
+    arguments=[
+        {"name": "campaign", "description": "Threat campaign to hunt for", "required": False},
+        {"name": "actor", "description": "Threat actor to hunt for", "required": False},
+        {"name": "timeframe_days", "description": "Days to search back", "required": False},
+    ],
+    tags=["opencti", "hunt"],
+)
+async def opencti_hunt_prompt(
+    campaign: Optional[str] = None,
+    actor: Optional[str] = None,
+    timeframe_days: int = 30,
+) -> str:
+    """Generate OpenCTI threat hunting prompt."""
+    target = campaign or actor or "recent threat activity"
+
+    return f"""You are a threat intelligence analyst hunting for threats using OpenCTI.
+
+Hunting Target: {target}
+Timeframe: Last {timeframe_days} days
+
+## Hunt Steps:
+1. **Search indicators**: Look for IOCs related to the target via `opencti_search_indicators`
+2. **Enrich findings**: Enrich any found indicators via `opencti_enrich_indicator`
+3. **Map to ATT&CK**: Map discovered TTPs via `opencti_get_mitre_attack`
+4. **Check threat actors**: Identify associated threat actors via `opencti_get_threat_actor`
+5. **Document intelligence**: Create threat intelligence report
+
+## Available Data:
+- Indicators: IPs, domains, hashes, URLs
+- Threat Actors: APT groups, cybercriminals
+- Campaigns: Coordinated attack operations
+- Attack Patterns: MITRE ATT&CK techniques
+
+## Output Format:
+Provide your hunt findings as:
+- **Target**: {target}
+- **Indicators Found**: List of IOCs discovered
+- **Threat Actors**: Associated threat actors
+- **TTPs**: MITRE ATT&CK techniques identified
+- **Risk Assessment**: Potential impact and likelihood
+- **Recommendations**: Detection and prevention measures"""
+
+
+@mcp_prompt(
+    name="response_plan",
+    description="Generate a response plan for an incident",
+    arguments=[
+        {"name": "incident_summary", "description": "Summary of the incident", "required": True},
+        {"name": "severity", "description": "Incident severity", "required": True},
+        {"name": "affected_systems", "description": "Systems affected", "required": False},
+    ],
+    tags=["response", "planning"],
+)
+async def response_plan_prompt(
+    incident_summary: str,
+    severity: str,
+    affected_systems: Optional[str] = None,
+) -> str:
+    """Generate response plan prompt."""
+    return f"""You are a incident response planner creating a containment and remediation plan.
+
+Incident Summary: {incident_summary}
+Severity: {severity}
+Affected Systems: {affected_systems or "To be determined"}
+
+## Response Planning Steps:
+1. **Assess scope**: Determine full impact using `wazuh_get_alerts` and `wazuh_get_agents`
+2. **Enrich IOCs**: Look up indicators via `opencti_enrich_indicator`
+3. **Containment**: Block malicious IPs via `wazuh_block_ip` or `isolate_host`
+4. **Eradication**: Disable compromised accounts via `disable_user_account`
+5. **Create case**: Document in TheHive via `thehive_create_case`
+6. **Communicate**: Notify stakeholders
+
+## Severity-Based Actions:
+- **Critical**: Immediate isolation, executive notification
+- **High**: Rapid containment, SOC escalation
+- **Medium**: Controlled response, standard workflow
+- **Low**: Monitor and document
+
+## Output Format:
+Provide your response plan as:
+- **Immediate Actions** (0-1 hour): Critical containment steps
+- **Short-term Actions** (1-24 hours): Investigation and eradication
+- **Long-term Actions** (1-7 days): Recovery and lessons learned
+- **Communication Plan**: Who to notify and when
+- **Approval Required**: Actions needing management approval"""
+
+
+@mcp_prompt(
+    name="response_approval",
+    description="Review and approve a response action",
+    arguments=[
+        {"name": "action", "description": "Action to approve", "required": True},
+        {"name": "risk_assessment", "description": "Risk assessment", "required": True},
+    ],
+    tags=["response", "approval"],
+)
+async def response_approval_prompt(action: str, risk_assessment: str) -> str:
+    """Generate response approval prompt."""
+    return f"""You are a SOC manager reviewing a response action for approval.
+
+Proposed Action: {action}
+Risk Assessment: {risk_assessment}
+
+## Approval Criteria:
+1. **Business Impact**: Will this action disrupt business operations?
+2. **Proportionality**: Is the action proportional to the threat?
+3. **Reversibility**: Can the action be undone if needed?
+4. **Evidence**: Is there sufficient evidence to justify the action?
+5. **Alternative**: Are there less disruptive alternatives?
+
+## Decision Framework:
+- **Approve**: Action is justified, proportional, and evidence-based
+- **Modify**: Action needs adjustment (scope, duration, etc.)
+- **Reject**: Action is not justified or too risky
+- **Defer**: Need more information or investigation
+
+## Output Format:
+Provide your decision as:
+- **Decision**: [Approve | Modify | Reject | Defer]
+- **Rationale**: Why this decision was made
+- **Conditions**: Any conditions for approval
+- **Alternative**: Suggested alternative if modifying/rejecting
+- **Escalation**: Whether escalation is needed"""
