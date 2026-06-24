@@ -80,8 +80,8 @@ class WebhookHandler:
 
     def _setup_routes(self) -> None:
         """Setup webhook routes."""
-        self.router.post("/webhook/{source}", self.handle_webhook)
-        self.router.post("/webhook", self.handle_webhook_generic)
+        self.router.add_api_route("/webhook/{source}", self.handle_webhook, methods=["POST"])
+        self.router.add_api_route("/webhook", self.handle_webhook_generic, methods=["POST"])
 
     def register_parser(
         self,

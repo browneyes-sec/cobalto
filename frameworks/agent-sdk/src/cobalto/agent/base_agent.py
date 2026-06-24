@@ -47,8 +47,7 @@ class AgentConfig(BaseModel):
     priority: int = 0
     metadata: Dict[str, Any] = {}
 
-    class Config:
-        use_enum_values = True
+    model_config = {"use_enum_values": False}
 
 
 class AgentResult(BaseModel):

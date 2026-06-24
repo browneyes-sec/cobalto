@@ -4,11 +4,11 @@ Parses alerts, extracts IOCs, and determines severity.
 """
 
 from typing import Any, Dict, List, Optional
-from frameworks.agent.base_agent import BaseAgent, AgentConfig, AgentType, AgentStatus, AgentResult
-from frameworks.agent.state import AlertState, Severity, AlertStatus
-from frameworks.agent.prompts import TRIAGE_SYSTEM_PROMPT
-from frameworks.core.logging import get_logger
-from frameworks.core.metrics import record_agent_execution
+from cobalto.agent.base_agent import BaseAgent, AgentConfig, AgentType, AgentStatus, AgentResult
+from cobalto.agent.state import AlertState, Severity, AlertStatus
+from cobalto.agent.prompts import TRIAGE_SYSTEM_PROMPT
+from cobalto.core.logging import get_logger
+from cobalto.core.metrics import record_agent_execution
 import time
 
 logger = get_logger(__name__)
