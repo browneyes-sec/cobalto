@@ -425,37 +425,212 @@ class DataMeshMemory:
         domain: MemoryDomain,
         tenant_id: str = "default",
         max_age_days: int = 7,
+        similarity_threshold: float = 0.9,
     ) -> Dict[str, Any]:
         """
         Consolidate memories - merge similar, archive old, extract insights.
 
+        Uses simple cosine similarity to find similar memories and merge them.
         Returns consolidation statistics.
         """
+        from qdrant_client.models import Filter, FieldCondition, MatchValue, PointStruct
+
         stats = {
             "total_processed": 0,
             "consolidated": 0,
             "archived": 0,
             "errors": 0,
+            "clusters_found": 0,
         }
 
         try:
-            # Get old memories
+            client = await self._get_client()
             cutoff_date = datetime.utcnow() - timedelta(days=max_age_days)
             collection = self._get_collection_for_domain(domain)
 
-            # TODO: Implement consolidation logic
-            # 1. Find similar memories (high cosine similarity)
-            # 2. Merge into consolidated entry
-            # 3. Archive original entries
-            # 4. Extract insights/patterns
+            # 1. Get old memories to consolidate
+            query_filter = Filter(
+                must=[
+                    FieldCondition(key="tenant_id", match=MatchValue(value=tenant_id)),
+                ]
+            )
 
-            stats["status"] = "consolidation_not_implemented"
+            results = await client.scroll(
+                collection_name=collection,
+                scroll_filter=query_filter,
+                limit=1000,
+            )
+
+            memories = []
+            for point in results[0]:
+                payload = point.payload
+                created_at = datetime.fromisoformat(payload.get("created_at", datetime.utcnow().isoformat()))
+                if created_at < cutoff_date:
+                    memories.append({
+                        "id": point.id,
+                        "payload": payload,
+                        "vector": point.vector,
+                    })
+
+            stats["total_processed"] = len(memories)
+
+            if len(memories) < 2:
+                stats["status"] = "not_enough_memories"
+                return stats
+
+            # 2. Find similar clusters using simple cosine similarity
+            consolidated_ids = set()
+            clusters = []
+
+            for i, mem_a in enumerate(memories):
+                if mem_a["id"] in consolidated_ids:
+                    continue
+
+                cluster = [mem_a]
+                vector_a = mem_a.get("vector", [])
+
+                if not vector_a:
+                    continue
+
+                for j, mem_b in enumerate(memories[i + 1:], i + 1):
+                    if mem_b["id"] in consolidated_ids:
+                        continue
+
+                    vector_b = mem_b.get("vector", [])
+                    if not vector_b:
+                        continue
+
+                    # Simple cosine similarity
+                    similarity = self._cosine_similarity(vector_a, vector_b)
+
+                    if similarity >= similarity_threshold:
+                        cluster.append(mem_b)
+                        consolidated_ids.add(mem_b["id"])
+
+                if len(cluster) >= 2:
+                    clusters.append(cluster)
+                    consolidated_ids.add(mem_a["id"])
+
+            stats["clusters_found"] = len(clusters)
+
+            # 3. Merge clusters into consolidated entries
+            for cluster in clusters:
+                try:
+                    # Merge content from all memories in cluster
+                    merged_content_parts = []
+                    total_importance = 0
+                    all_tags = set()
+                    earliest_date = datetime.utcnow()
+                    latest_date = datetime.min
+
+                    for mem in cluster:
+                        content = mem["payload"].get("content", "")
+                        if content:
+                            merged_content_parts.append(content)
+
+                        total_importance += mem["payload"].get("importance", 0.5)
+                        all_tags.update(mem["payload"].get("tags", []))
+
+                        created = datetime.fromisoformat(
+                            mem["payload"].get("created_at", datetime.utcnow().isoformat())
+                        )
+                        if created < earliest_date:
+                            earliest_date = created
+                        if created > latest_date:
+                            latest_date = created
+
+                    # Create consolidated content
+                    if len(merged_content_parts) > 1:
+                        merged_content = f"[Consolidated from {len(cluster)} entries]\n" + "\n".join(set(merged_content_parts))
+                    else:
+                        merged_content = merged_content_parts[0] if merged_content_parts else ""
+
+                    # Use the first memory's vector (or average)
+                    consolidated_vector = cluster[0].get("vector", [])
+
+                    # Create new consolidated entry
+                    new_point = PointStruct(
+                        id=hash(f"consolidated_{cluster[0]['id']}") % (2**63),
+                        vector=consolidated_vector,
+                        payload={
+                            "id": f"consolidated-{uuid.uuid4().hex[:8]}",
+                            "content": merged_content,
+                            "summary": f"Consolidated from {len(cluster)} similar memories",
+                            "memory_type": cluster[0]["payload"].get("memory_type", "episodic"),
+                            "domain": domain.value,
+                            "tenant_id": tenant_id,
+                            "tags": list(all_tags),
+                            "importance": min(1.0, total_importance / len(cluster)),
+                            "created_at": earliest_date.isoformat(),
+                            "updated_at": datetime.utcnow().isoformat(),
+                            "is_consolidated": True,
+                            "consolidated_from": [m["id"] for m in cluster],
+                        },
+                    )
+
+                    # Upsert consolidated entry
+                    await client.upsert(
+                        collection_name=collection,
+                        points=[new_point],
+                    )
+
+                    # Delete original entries
+                    original_ids = [m["id"] for m in cluster]
+                    await client.delete(
+                        collection_name=collection,
+                        points_selector=original_ids,
+                    )
+
+                    stats["consolidated"] += 1
+
+                except Exception as e:
+                    stats["errors"] += 1
+                    print(f"Error consolidating cluster: {e}")
+
+            # 4. Archive very old unconsolidated memories (older than 2x max_age_days)
+            archive_cutoff = datetime.utcnow() - timedelta(days=max_age_days * 2)
+            archived_count = 0
+
+            for mem in memories:
+                if mem["id"] in consolidated_ids:
+                    continue
+
+                created_at = datetime.fromisoformat(
+                    mem["payload"].get("created_at", datetime.utcnow().isoformat())
+                )
+
+                if created_at < archive_cutoff:
+                    try:
+                        await client.delete(
+                            collection_name=collection,
+                            points_selector=[mem["id"]],
+                        )
+                        archived_count += 1
+                    except Exception as e:
+                        stats["errors"] += 1
+
+            stats["archived"] = archived_count
+            stats["status"] = "completed"
 
         except Exception as e:
             stats["errors"] += 1
             print(f"Error in consolidation: {e}")
 
         return stats
+
+    def _cosine_similarity(self, vec_a: List[float], vec_b: List[float]) -> float:
+        """Calculate cosine similarity between two vectors."""
+        if not vec_a or not vec_b or len(vec_a) != len(vec_b):
+            return 0.0
+
+        dot_product = sum(a * b for a, b in zip(vec_a, vec_b))
+        norm_a = sum(a ** 2 for a in vec_a) ** 0.5
+        norm_b = sum(b ** 2 for b in vec_b) ** 0.5
+
+        if norm_a == 0 or norm_b == 0:
+            return 0.0
+
+        return dot_product / (norm_a * norm_b)
 
     async def get_cross_agent_insights(
         self,

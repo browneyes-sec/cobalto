@@ -110,6 +110,15 @@ python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
 python_classes = ["Test*"]
 addopts = "-v --tb=short --strict-markers --asyncio-mode=auto"
+pythonpath = [
+    "frameworks/core/src",
+    "frameworks/agent-sdk/src",
+    "frameworks/vector-sdk/src",
+    "frameworks/soar-sdk/src",
+    "frameworks/intel-sdk/src",
+    "frameworks/mcp-bridge/src",
+    "frameworks/testing/src",
+]
 markers = [
     "unit: Unit tests",
     "integration: Integration tests",
