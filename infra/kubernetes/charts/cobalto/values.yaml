@@ -1,0 +1,216 @@
+# Cobalto Helm Chart Values
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# LangGraph Agent Service
+langgraph:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ghcr.io/browneyes-sec/cobalto/langgraph-api
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# n8n SOAR
+n8n:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: n8nio/n8n
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5678
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Wazuh
+wazuh:
+  enabled: true
+  manager:
+    replicaCount: 1
+    image:
+      repository: wazuh/wazuh-manager
+      tag: "4.7.0"
+  indexer:
+    replicaCount: 1
+    image:
+      repository: wazuh/wazuh-indexer
+      tag: "4.7.0"
+  dashboard:
+    replicaCount: 1
+    image:
+      repository: wazuh/wazuh-dashboard
+      tag: "4.7.0"
+
+# OpenCTI
+opencti:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: opencti/platform
+    tag: "5.6.0"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+# TheHive
+thehive:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: thehiveproject/thehive
+    tag: "5.2.0"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# Cortex
+cortex:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: thehiveproject/cortex
+    tag: "3.1.8"
+
+# Qdrant
+qdrant:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: qdrant/qdrant
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 6333
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Elasticsearch/OpenSearch
+opensearch:
+  enabled: true
+  singleNode: true
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+# Grafana
+grafana:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: grafana/grafana
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 3000
+
+# HashiCorp Vault
+vault:
+  enabled: true
+  server:
+    image:
+      repository: hashicorp/vault
+      tag: "latest"
+
+# PostgreSQL (external RDS)
+postgresql:
+  host: ""
+  port: 5432
+  database: cobalto
+  existingSecret: ""
+  existingSecretKey: "password"
+
+# Redis (external ElastiCache)
+redis:
+  host: ""
+  port: 6379
+  existingSecret: ""
+  existingSecretKey: "password"
+
+# RabbitMQ (external Amazon MQ)
+rabbitmq:
+  host: ""
+  port: 5672
+  existingSecret: ""
+  existingSecretKey: "password"
+
+# Secrets
+secrets:
+  wazuhPassword: ""
+  openctiToken: ""
+  thehiveToken: ""
+  cortexToken: ""
+  n8nApiKey: ""
+  langgraphApiKey: ""
+  vaultToken: ""
+  jwtSecretKey: ""
+  slackBotToken: ""
+  slackSigningSecret: ""
+  virustotalApiKey: ""
+  abuseipdbApiKey: ""
+  shodanApiKey: ""
+
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+
+# Ingress
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: soc.cobalto.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: cobalto-tls
+      hosts:
+        - soc.cobalto.io
