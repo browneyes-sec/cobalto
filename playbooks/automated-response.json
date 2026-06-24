@@ -1,0 +1,145 @@
+{
+  "name": "Cobalto Automated Response",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "response",
+        "authentication": "headerAuth",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-1",
+      "name": "Response Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse response action request\nconst request = $input.first().json;\n\nconst actions = request.actions || [];\nconst alert_id = request.alert_id;\nconst approval_required = request.approval_required || [];\n\n// Separate approved and pending actions\nconst approved_actions = actions.filter(a => !approval_required.includes(a.type));\nconst pending_actions = actions.filter(a => approval_required.includes(a.type));\n\nreturn [{\n  json: {\n    alert_id,\n    approved_actions,\n    pending_actions,\n    total_actions: actions.length\n  }\n}];"
+      },
+      "id": "code-1",
+      "name": "Parse Actions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [500, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{ $json.pending_actions.length }}",
+              "operation": "larger",
+              "value2": 0
+            }
+          ]
+        }
+      },
+      "id": "if-1",
+      "name": "Needs Approval?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "channel": "#soc-approvals",
+        "text": "🔒 *Action Requires Approval*\n\n*Alert ID:* {{ $json.alert_id }}\n*Pending Actions:*\n{{ $json.pending_actions.map(a => `- ${a.type}: ${a.description}`).join('\\n') }}\n\nReply with `approve {{ $json.alert_id }}` or `reject {{ $json.alert_id }}`",
+        "otherOptions": {}
+      },
+      "id": "slack-1",
+      "name": "Request Approval",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1000, 200],
+      "credentials": {
+        "slackApi": "Slack API"
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Execute approved actions\nconst actions = $input.first().json.approved_actions;\nconst results = [];\n\nfor (const action of actions) {\n  try {\n    // Execute action based on type\n    let result;\n    \n    switch (action.type) {\n      case 'block_ip':\n        // Call firewall API\n        result = { status: 'success', action: 'block_ip', target: action.target };\n        break;\n      case 'isolate_host':\n        // Call Wazuh active response\n        result = { status: 'success', action: 'isolate_host', target: action.target };\n        break;\n      case 'disable_user':\n        // Call AD API\n        result = { status: 'success', action: 'disable_user', target: action.target };\n        break;\n      default:\n        result = { status: 'skipped', action: action.type, reason: 'unknown action type' };\n    }\n    \n    results.push(result);\n  } catch (error) {\n    results.push({ status: 'failed', action: action.type, error: error.message });\n  }\n}\n\nreturn [{ json: { results, alert_id: $input.first().json.alert_id } }];"
+      },
+      "id": "code-2",
+      "name": "Execute Actions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Generate response summary\nconst results = $input.first().json.results;\nconst alert_id = $input.first().json.alert_id;\n\nconst successful = results.filter(r => r.status === 'success').length;\nconst failed = results.filter(r => r.status === 'failed').length;\nconst skipped = results.filter(r => r.status === 'skipped').length;\n\nconst summary = {\n  alert_id,\n  total_actions: results.length,\n  successful,\n  failed,\n  skipped,\n  results\n};\n\nreturn [{ json: summary }];"
+      },
+      "id": "code-3",
+      "name": "Generate Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1250, 300]
+    }
+  ],
+  "connections": {
+    "Response Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Actions": {
+      "main": [
+        [
+          {
+            "node": "Needs Approval?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs Approval?": {
+      "main": [
+        [
+          {
+            "node": "Request Approval",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Execute Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Actions": {
+      "main": [
+        [
+          {
+            "node": "Generate Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "1",
+  "meta": {
+    "instanceId": "cobalto-local"
+  }
+}

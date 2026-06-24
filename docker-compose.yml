@@ -1,0 +1,289 @@
+version: "3.8"
+
+# Cobalto Local Development Stack
+# Usage: docker compose up -d
+
+services:
+  # =============================================================================
+  # DATABASES
+  # =============================================================================
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: cobalto-postgres
+    environment:
+      POSTGRES_DB: cobalto
+      POSTGRES_USER: cobalto
+      POSTGRES_PASSWORD: cobalto_local_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cobalto"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: cobalto-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: opensearchproject/opensearch:2.11.0
+    container_name: cobalto-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - plugins.security.disabled=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/opensearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # =============================================================================
+  # MESSAGE QUEUES
+  # =============================================================================
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: cobalto-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: cobalto
+      RABBITMQ_DEFAULT_PASS: cobalto_local_dev
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # =============================================================================
+  # SIEM & THREAT INTEL
+  # =============================================================================
+
+  wazuh-manager:
+    image: wazuh/wazuh-manager:4.7.0
+    container_name: cobalto-wazuh-manager
+    ports:
+      - "55000:55000"
+    environment:
+      - INDEXER_URL=http://elasticsearch:9200
+    volumes:
+      - wazuh_api_configuration:/var/ossec/api/configuration
+      - wazuh_etc:/var/ossec/etc
+      - wazuh_logs:/var/ossec/logs
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  opencti:
+    image: opencti/platform:5.6.0
+    container_name: cobalto-opencti
+    environment:
+      - OPENCTI_HTTP_PORT=4000
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      - REDIS_URL=redis://redis:6379
+      - AMQP_URL=amqp://cobalto:cobalto_local_dev@rabbitmq:5672
+      - OPENCTI_ADMIN__EMAIL=admin@cobalto.local
+      - OPENCTI_ADMIN__PASSWORD=Admin123!
+      - OPENCTI_ADMIN__TOKEN=d41d8cd98f00b204e9800998ecf8427e
+    ports:
+      - "4000:4000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+
+  thehive:
+    image: thehiveproject/thehive:5.2.0
+    container_name: cobalto-thehive
+    environment:
+      - THEHIVE_DATABASE_TYPE=local
+      - THEHIVE_STORAGE_LOCAL__LOCATION=/opt/thhive/data
+      - THEHIVE_AUTH__PROVIDER1=local
+      - THEHIVE_AUTH__PROVIDER1.USERS.ADMIN=secret:admin@cobalto.local
+    ports:
+      - "9000:9000"
+    volumes:
+      - thehive_data:/opt/thhive/data
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  cortex:
+    image: thehiveproject/cortex:3.1.8
+    container_name: cobalto-cortex
+    environment:
+      - CORTEX_DATABASE_TYPE=local
+      - CORTEX_STORAGE_LOCAL__LOCATION=/opt/cortex/data
+    ports:
+      - "9001:9001"
+    volumes:
+      - cortex_data:/opt/cortex/data
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  # =============================================================================
+  # AUTOMATION & AI
+  # =============================================================================
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: cobalto-n8n
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=admin123
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - WEBHOOK_URL=http://localhost:5678
+      - DB_TYPE=postgresdb
+      - DB_POSTGRESDB_HOST=postgres
+      - DB_POSTGRESDB_PORT=5432
+      - DB_POSTGRESDB_DATABASE=n8n
+      - DB_POSTGRESDB_USER=cobalto
+      - DB_POSTGRESDB_PASSWORD=cobalto_local_dev
+    ports:
+      - "5678:5678"
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  langgraph-api:
+    build:
+      context: .
+      dockerfile: services/langgraph/Dockerfile
+    container_name: cobalto-langgraph-api
+    environment:
+      - APP_ENV=development
+      - DATABASE_URL=postgresql+asyncpg://cobalto:cobalto_local_dev@postgres:5432/cobalto
+      - REDIS_URL=redis://redis:6379/0
+      - QDRANT_URL=http://qdrant:6333
+      - OPENCTI_URL=http://opencti:4000/graphql
+      - OPENCTI_TOKEN=d41d8cd98f00b204e9800998ecf8427e
+      - THEHIVE_URL=http://thehive:9000/api
+      - THEHIVE_TOKEN=change-me
+      - CORTEX_URL=http://cortex:9001/api
+      - CORTEX_TOKEN=change-me
+      - WAZUH_URL=https://wazuh-manager:55000
+      - WAZUH_USERNAME=wazuh
+      - WAZUH_PASSWORD=admin
+      - N8N_URL=http://n8n:5678
+      - N8N_API_KEY=change-me
+      - JWT_SECRET_KEY=dev-secret-key-change-in-production
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./frameworks:/app/frameworks
+      - ./services:/app/services
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+
+  # =============================================================================
+  # VECTOR DATABASE
+  # =============================================================================
+
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    container_name: cobalto-qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:6333/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # MONITORING
+  # =============================================================================
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: cobalto-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infra/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: cobalto-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+
+  # =============================================================================
+  # VAULT
+  # =============================================================================
+
+  vault:
+    image: hashicorp/vault:1.15
+    container_name: cobalto-vault
+    cap_add:
+      - IPC_LOCK
+    environment:
+      - VAULT_ADDR=http://0.0.0.0:8200
+      - VAULT_API_ADDR=http://localhost:8200
+    ports:
+      - "8200:8200"
+    volumes:
+      - vault_data:/vault/file
+    command: server -dev -dev-root-token-id=root
+
+volumes:
+  postgres_data:
+  redis_data:
+  es_data:
+  rabbitmq_data:
+  wazuh_api_configuration:
+  wazuh_etc:
+  wazuh_logs:
+  thehive_data:
+  cortex_data:
+  n8n_data:
+  qdrant_data:
+  grafana_data:
+  prometheus_data:
+  vault_data:

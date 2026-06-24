@@ -1,0 +1,433 @@
+openapi: 3.1.0
+info:
+  title: Cobalto LangGraph Agent Service API
+  description: Multi-agent AI orchestration for threat detection and response
+  version: 0.1.0
+  contact:
+    name: Cobalto Team
+    email: team@cobalto.io
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8001
+    description: Local development
+  - url: https://api.cobalto.io
+    description: Production
+
+tags:
+  - name: Health
+    description: Health and readiness checks
+  - name: Agents
+    description: Agent execution endpoints
+  - name: Alerts
+    description: Alert processing endpoints
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Returns service health status with component checks
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      tags: [Health]
+      summary: Prometheus metrics
+      description: Returns Prometheus-format metrics
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Metrics in Prometheus format
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /agent/analyze:
+    post:
+      tags: [Agents]
+      summary: Analyze alert with supervisor
+      description: Routes alert to appropriate agent based on severity and context
+      operationId: analyzeAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Analysis complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeResponse'
+        '500':
+          description: Analysis failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agent/triage:
+    post:
+      tags: [Agents]
+      summary: Triage alert
+      description: Initial alert assessment, IOC extraction, severity determination
+      operationId: triageAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Triage complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageResponse'
+        '500':
+          description: Triage failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agent/analyze-deep:
+    post:
+      tags: [Agents]
+      summary: Deep analysis
+      description: Deep investigation with MITRE ATT&CK mapping and risk assessment
+      operationId: deepAnalysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Analysis complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResponse'
+        '500':
+          description: Analysis failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agent/threat-intel:
+    post:
+      tags: [Agents]
+      summary: Threat intelligence lookup
+      description: Correlate with threat intel and identify threat actors
+      operationId: threatIntelLookup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Intel lookup complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreatIntelResponse'
+        '500':
+          description: Lookup failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agent/response:
+    post:
+      tags: [Agents]
+      summary: Generate response actions
+      description: Create containment and remediation plan
+      operationId: generateResponse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Response plan generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponsePlanResponse'
+        '500':
+          description: Generation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agent/run:
+    post:
+      tags: [Agents]
+      summary: Run specific agent
+      description: Execute a specific agent type with input data
+      operationId: runAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRunRequest'
+      responses:
+        '200':
+          description: Agent execution complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRunResponse'
+        '500':
+          description: Execution failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        version:
+          type: string
+        uptime_seconds:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+        components:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComponentHealth'
+
+    ComponentHealth:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        message:
+          type: string
+        latency_ms:
+          type: number
+
+    AnalyzeRequest:
+      type: object
+      required: [alert_id, alert]
+      properties:
+        alert_id:
+          type: string
+        alert:
+          type: object
+          description: Raw alert data
+        context:
+          type: object
+          description: Additional context
+
+    AnalyzeResponse:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        status:
+          type: string
+        routing:
+          type: object
+          properties:
+            next_agent:
+              type: string
+            reason:
+              type: string
+            confidence:
+              type: number
+        duration_ms:
+          type: number
+
+    TriageResponse:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        status:
+          type: string
+        result:
+          type: object
+          properties:
+            alert_type:
+              type: string
+            severity:
+              type: string
+            indicators:
+              type: array
+              items:
+                type: object
+            investigation_steps:
+              type: array
+              items:
+                type: string
+        duration_ms:
+          type: number
+
+    AnalysisResponse:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        status:
+          type: string
+        result:
+          type: object
+          properties:
+            attack_narrative:
+              type: string
+            mitre_mapping:
+              type: object
+            risk_assessment:
+              type: object
+            recommendations:
+              type: array
+              items:
+                type: string
+        duration_ms:
+          type: number
+
+    ThreatIntelResponse:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        status:
+          type: string
+        result:
+          type: object
+          properties:
+            threat_intel_results:
+              type: array
+              items:
+                type: object
+            threat_actors:
+              type: array
+              items:
+                type: object
+            threat_level:
+              type: string
+            recommendations:
+              type: array
+              items:
+                type: string
+        duration_ms:
+          type: number
+
+    ResponsePlanResponse:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        status:
+          type: string
+        result:
+          type: object
+          properties:
+            containment_actions:
+              type: array
+              items:
+                type: object
+            remediation_actions:
+              type: array
+              items:
+                type: object
+            approval_required:
+              type: array
+              items:
+                type: string
+            rollback_plan:
+              type: array
+              items:
+                type: object
+            priority:
+              type: string
+        duration_ms:
+          type: number
+
+    AgentRunRequest:
+      type: object
+      required: [agent_type, input_data]
+      properties:
+        agent_type:
+          type: string
+          enum: [triage, analysis, threat_intel, response, threat_hunt, documentation]
+        input_data:
+          type: object
+        context:
+          type: object
+
+    AgentRunResponse:
+      type: object
+      properties:
+        agent_id:
+          type: string
+        agent_type:
+          type: string
+        status:
+          type: string
+        output:
+          type: object
+        duration_ms:
+          type: number
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        error_code:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
