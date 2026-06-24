@@ -1,13 +1,15 @@
 """
 LangGraph Agent Service
-Main FastAPI application for agent orchestration.
+Main FastAPI application for agent orchestration with MCP Bridge.
 """
 
 import time
+import asyncio
+import json
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 import uuid
@@ -18,6 +20,12 @@ from cobalto.core.metrics import Metrics, record_http_request
 from cobalto.core.health import HealthChecker, HealthStatus
 from cobalto.agent.supervisor import SupervisorAgent
 from cobalto.agent.base_agent import AgentConfig, AgentType
+
+# MCP imports
+from cobalto.mcp.server import MCPServer
+from cobalto.mcp.registry.tools import get_tool_registry
+from cobalto.mcp.registry.resources import get_resource_registry
+from cobalto.mcp.registry.prompts import get_prompt_registry
 
 # Setup logging
 setup_logging()
@@ -37,9 +45,43 @@ async def lifespan(app: FastAPI):
     app.state.health_checker = HealthChecker("langgraph-api")
     app.state.supervisor = SupervisorAgent()
 
+    # Initialize MCP Server
+    app.state.mcp_server = MCPServer(
+        name="cobalto-langgraph-mcp",
+        version="0.1.0",
+    )
+
+    # Import and register MCP tools
+    _register_mcp_tools()
+    _register_mcp_resources()
+    _register_mcp_prompts()
+
+    # SSE session storage
+    app.state.mcp_sessions: Dict[str, asyncio.Queue] = {}
+
+    logger.info("langgraph_service_started", mcp_enabled=settings.mcp_server_enabled)
+
     yield
 
     logger.info("langgraph_service_shutting_down")
+
+
+def _register_mcp_tools():
+    """Register all MCP tools."""
+    from cobalto.mcp.tools import wazuh, opencti, thehive, response
+    logger.info("mcp_tools_registered")
+
+
+def _register_mcp_resources():
+    """Register all MCP resources."""
+    from cobalto.mcp.resources import soc_resources
+    logger.info("mcp_resources_registered")
+
+
+def _register_mcp_prompts():
+    """Register all MCP prompts."""
+    from cobalto.mcp.prompts import soc_prompts
+    logger.info("mcp_prompts_registered")
 
 
 # Create FastAPI app
@@ -308,6 +350,160 @@ async def generate_response(request: AnalyzeRequest):
     except Exception as e:
         logger.exception("generate_response_failed", alert_id=request.alert_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# MCP Bridge Endpoints
+# =============================================================================
+
+@app.get("/mcp")
+async def mcp_info():
+    """MCP server information."""
+    mcp_server = app.state.mcp_server
+    return JSONResponse(content=mcp_server.get_server_info())
+
+
+@app.get("/mcp/sse")
+async def mcp_sse():
+    """SSE endpoint for MCP protocol."""
+    if not settings.mcp_server_enabled:
+        raise HTTPException(status_code=503, detail="MCP server disabled")
+
+    session_id = f"session-{uuid.uuid4().hex[:8]}"
+    queue: asyncio.Queue = asyncio.Queue()
+    app.state.mcp_sessions[session_id] = queue
+
+    async def event_generator():
+        try:
+            # Send connection event
+            yield f"event: connected\ndata: {json.dumps({'session_id': session_id})}\n\n"
+
+            while True:
+                try:
+                    message = await asyncio.wait_for(queue.get(), timeout=30)
+                    if message is None:
+                        break
+                    yield f"data: {json.dumps(message)}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        finally:
+            app.state.mcp_sessions.pop(session_id, None)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@app.post("/mcp/messages")
+async def mcp_messages(request: Request):
+    """Handle MCP JSON-RPC messages."""
+    if not settings.mcp_server_enabled:
+        raise HTTPException(status_code=503, detail="MCP server disabled")
+
+    try:
+        body = await request.json()
+        session_id = request.query_params.get("session_id")
+
+        mcp_server = app.state.mcp_server
+        response = await mcp_server.handle_message(body)
+
+        # Send to SSE stream if session exists
+        if session_id and session_id in app.state.mcp_sessions:
+            if response:
+                await app.state.mcp_sessions[session_id].put(json.loads(response))
+
+        return JSONResponse(
+            content=json.loads(response) if response else {"ok": True},
+        )
+
+    except Exception as e:
+        logger.exception("mcp_message_error", error=str(e))
+        return JSONResponse(
+            status_code=500,
+            content={
+                "jsonrpc": "2.0",
+                "error": {"code": -32603, "message": str(e)},
+                "id": None,
+            },
+        )
+
+
+@app.get("/mcp/tools")
+async def mcp_list_tools():
+    """List available MCP tools."""
+    tool_registry = get_tool_registry()
+    tools = tool_registry.list_tools()
+    return JSONResponse(
+        content={"tools": [tool.model_dump() for tool in tools]}
+    )
+
+
+@app.get("/mcp/resources")
+async def mcp_list_resources():
+    """List available MCP resources."""
+    resource_registry = get_resource_registry()
+    resources = resource_registry.list_resources()
+    templates = resource_registry.list_templates()
+    return JSONResponse(
+        content={
+            "resources": [r.model_dump() for r in resources],
+            "templates": [t.model_dump() for t in templates],
+        }
+    )
+
+
+@app.get("/mcp/prompts")
+async def mcp_list_prompts():
+    """List available MCP prompts."""
+    prompt_registry = get_prompt_registry()
+    prompts = prompt_registry.list_prompts()
+    return JSONResponse(
+        content={"prompts": [p.model_dump() for p in prompts]}
+    )
+
+
+@app.post("/mcp/tools/{tool_name}/call")
+async def mcp_call_tool(tool_name: str, request: Request):
+    """Call an MCP tool directly via HTTP."""
+    if not settings.mcp_server_enabled:
+        raise HTTPException(status_code=503, detail="MCP server disabled")
+
+    try:
+        body = await request.json()
+        arguments = body.get("arguments", {})
+
+        tool_registry = get_tool_registry()
+        result = await tool_registry.call_tool(tool_name, arguments)
+
+        return JSONResponse(content=result.model_dump())
+
+    except Exception as e:
+        logger.exception("mcp_tool_call_error", tool=tool_name, error=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/mcp/health")
+async def mcp_health():
+    """MCP health check."""
+    tool_registry = get_tool_registry()
+    resource_registry = get_resource_registry()
+    prompt_registry = get_prompt_registry()
+
+    return JSONResponse(
+        content={
+            "status": "healthy",
+            "tools_count": len(tool_registry.list_tool_names()),
+            "resources_count": len(resource_registry.list_uris()),
+            "prompts_count": len(prompt_registry.list_prompt_names()),
+            "sessions_count": len(app.state.mcp_sessions) if hasattr(app.state, 'mcp_sessions') else 0,
+        }
+    )
 
 
 if __name__ == "__main__":

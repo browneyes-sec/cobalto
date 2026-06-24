@@ -23,6 +23,8 @@ tags:
     description: Agent execution endpoints
   - name: Alerts
     description: Alert processing endpoints
+  - name: MCP
+    description: Model Context Protocol endpoints
 
 paths:
   /health:
@@ -214,6 +216,163 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /mcp:
+    get:
+      tags: [MCP]
+      summary: MCP server information
+      description: Returns MCP server capabilities and version info
+      operationId: getMcpInfo
+      responses:
+        '200':
+          description: MCP server info
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /mcp/sse:
+    get:
+      tags: [MCP]
+      summary: MCP SSE stream
+      description: Server-Sent Events stream for MCP protocol
+      operationId: mcpSse
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /mcp/messages:
+    post:
+      tags: [MCP]
+      summary: MCP JSON-RPC message
+      description: Send JSON-RPC messages to MCP server
+      operationId: mcpMessages
+      parameters:
+        - name: session_id
+          in: query
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: JSON-RPC response
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /mcp/tools:
+    get:
+      tags: [MCP]
+      summary: List MCP tools
+      description: List all available MCP tools
+      operationId: listMcpTools
+      responses:
+        '200':
+          description: List of tools
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MCPTool'
+
+  /mcp/resources:
+    get:
+      tags: [MCP]
+      summary: List MCP resources
+      description: List all available MCP resources
+      operationId: listMcpResources
+      responses:
+        '200':
+          description: List of resources
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resources:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MCPResource'
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MCPResource'
+
+  /mcp/prompts:
+    get:
+      tags: [MCP]
+      summary: List MCP prompts
+      description: List all available MCP prompts
+      operationId: listMcpPrompts
+      responses:
+        '200':
+          description: List of prompts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prompts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MCPPrompt'
+
+  /mcp/tools/{tool_name}/call:
+    post:
+      tags: [MCP]
+      summary: Call MCP tool
+      description: Call an MCP tool directly via HTTP
+      operationId: callMcpTool
+      parameters:
+        - name: tool_name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                arguments:
+                  type: object
+      responses:
+        '200':
+          description: Tool execution result
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /mcp/health:
+    get:
+      tags: [MCP]
+      summary: MCP health check
+      description: MCP server health with tool/resource counts
+      operationId: mcpHealth
+      responses:
+        '200':
+          description: MCP health status
+          content:
+            application/json:
+              schema:
+                type: object
 
 components:
   schemas:
@@ -422,6 +581,40 @@ components:
         timestamp:
           type: string
           format: date-time
+
+    MCPTool:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        inputSchema:
+          type: object
+
+    MCPResource:
+      type: object
+      properties:
+        uri:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        mimeType:
+          type: string
+
+    MCPPrompt:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        arguments:
+          type: array
+          items:
+            type: object
 
   securitySchemes:
     bearerAuth:
