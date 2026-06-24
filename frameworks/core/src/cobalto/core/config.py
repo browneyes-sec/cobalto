@@ -185,6 +185,29 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 100
     rate_limit_window_seconds: int = 60
 
+    # MCP Server
+    mcp_server_enabled: bool = True
+    mcp_server_host: str = "0.0.0.0"
+    mcp_server_port: int = 8002
+    mcp_server_transport: str = "sse"  # stdio, sse, websocket
+    mcp_auth_enabled: bool = True
+    mcp_rate_limit_requests: int = 100
+    mcp_rate_limit_window_seconds: int = 60
+
+    # MCP External Servers (JSON format: {"name": {"url": "...", "auth": {...}}})
+    mcp_external_servers: str = "{}"
+
+    # Data Mesh Memory
+    memory_data_mesh_enabled: bool = True
+    memory_consolidation_enabled: bool = True
+    memory_consolidation_schedule: str = "0 2 * * *"  # 2 AM daily
+    memory_ttl_days: int = 90
+    memory_importance_threshold: float = 0.3
+    memory_max_entries_per_agent: int = 10000
+    memory_cross_tenant_sharing: bool = False
+    memory_embedding_model: str = "text-embedding-3-small"
+    memory_embedding_dimensions: int = 1536
+
     # Feature Flags
     enable_mitre_mapping: bool = True
     enable_threat_hunt: bool = False

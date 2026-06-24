@@ -72,6 +72,12 @@ platform = [
     "kubernetes>=29.0",
     "helm>=0.1.0",
 ]
+mcp = [
+    "sse-starlette>=2.0",
+    "starlette>=0.37",
+    "uvicorn>=0.30",
+    "pyjwt>=2.8",
+]
 
 [tool.ruff]
 line-length = 100
