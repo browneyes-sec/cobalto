@@ -12,12 +12,12 @@ from pydantic import BaseModel
 from typing import Any, Dict, List, Optional
 import uuid
 
-from frameworks.core.config import get_settings
-from frameworks.core.logging import setup_logging, get_logger
-from frameworks.core.metrics import Metrics, record_http_request
-from frameworks.core.health import HealthChecker, HealthStatus
-from frameworks.agent.supervisor import SupervisorAgent
-from frameworks.agent.base_agent import AgentConfig, AgentType
+from cobalto.core.config import get_settings
+from cobalto.core.logging import setup_logging, get_logger
+from cobalto.core.metrics import Metrics, record_http_request
+from cobalto.core.health import HealthChecker, HealthStatus
+from cobalto.agent.supervisor import SupervisorAgent
+from cobalto.agent.base_agent import AgentConfig, AgentType
 
 # Setup logging
 setup_logging()
@@ -173,7 +173,7 @@ async def run_agent(request: AgentRequest):
 
     try:
         # Import and instantiate the appropriate agent
-        from frameworks.agent.base_agent import AgentType
+        from cobalto.agent.base_agent import AgentType
 
         agent_type = AgentType(request.agent_type)
 

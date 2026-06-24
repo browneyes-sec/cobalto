@@ -10,12 +10,6 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION, DEPLOYMENT_ENVIRONMENT
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
-from opentelemetry.instrumentation.redis import RedisInstrumentor
-from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
-from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
 from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapPropagator
 from opentelemetry.propagate import set_global_textmap
 from .config import get_settings
@@ -73,12 +67,27 @@ def setup_tracing(
 def _setup_auto_instrumentation() -> None:
     """Configure automatic instrumentation for common libraries."""
     try:
+        from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+        from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+        from opentelemetry.instrumentation.redis import RedisInstrumentor
+        from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
         FastAPIInstrumentor.instrument()
         HTTPXClientInstrumentor.instrument()
         RedisInstrumentor.instrument()
-        Psycopg2Instrumentor.instrument()
         RequestsInstrumentor.instrument()
-        AioHttpClientInstrumentor.instrument()
+
+        try:
+            from opentelemetry.instrumentation.psycopg2 import Psycopg2Instrumentor
+            Psycopg2Instrumentor.instrument()
+        except ImportError:
+            pass
+
+        try:
+            from opentelemetry.instrumentation.aiohttp_client import AioHttpClientInstrumentor
+            AioHttpClientInstrumentor.instrument()
+        except ImportError:
+            pass
     except Exception as e:
         logger.warning("auto_instrumentation_failed", error=str(e))
 

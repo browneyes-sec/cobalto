@@ -4,11 +4,11 @@ Correlates with MITRE ATT&CK and builds attack narratives.
 """
 
 from typing import Any, Dict, List, Optional
-from frameworks.agent.base_agent import BaseAgent, AgentConfig, AgentType, AgentStatus, AgentResult
-from frameworks.agent.state import InvestigationState, Severity
-from frameworks.agent.prompts import ANALYSIS_SYSTEM_PROMPT
-from frameworks.core.logging import get_logger
-from frameworks.core.metrics import record_agent_execution
+from cobalto.agent.base_agent import BaseAgent, AgentConfig, AgentType, AgentStatus, AgentResult
+from cobalto.agent.state import InvestigationState, Severity
+from cobalto.agent.prompts import ANALYSIS_SYSTEM_PROMPT
+from cobalto.core.logging import get_logger
+from cobalto.core.metrics import record_agent_execution
 import time
 
 logger = get_logger(__name__)
