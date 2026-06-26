@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<group name="cobalto-soc,mitre-attack,">
+  <rule id="100100" level="10">
+    <if_sid>5712</if_sid>
+    <field name="count" type="pcre2">^([5-9]|[1-9]\d+)$</field>
+    <description>Brute Force SSH - Multiple failed sshd authentication attempts (T1110.001)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>brute_force_ssh,cis_bad_authentication</group>
+  </rule>
+
+  <rule id="100101" level="10">
+    <if_sid>5716</if_sid>
+    <field name="count" type="pcre2">^([5-9]|[1-9]\d+)$</field>
+    <description>Brute Force RDP - Multiple failed login attempts on port 3389 (T1110.001)</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>brute_force_rdp,cis_bad_authentication</group>
+  </rule>
+
+  <rule id="100102" level="9">
+    <if_sid>5712,5716</if_sid>
+    <field name="count" type="pcre2">^([3-9]|[1-9]\d+)$</field>
+    <field name="srcip" type="pcre2">.+</field>
+    <description>Credential Stuffing - Multiple accounts targeted from same source IP (T1110.004)</description>
+    <mitre>
+      <id>T1110.004</id>
+    </mitre>
+    <group>credential_stuffing,cis_bad_authentication</group>
+  </rule>
+
+  <rule id="100103" level="9">
+    <if_sid>5716</if_sid>
+    <match>IPC\$</match>
+    <field name="dstport" type="pcre2">^445$</field>
+    <description>Lateral Movement SMB - Suspicious SMB activity detected (T1021.002)</description>
+    <mitre>
+      <id>T1021.002</id>
+    </mitre>
+    <group>lateral_movement_smb,unauthorized_access</group>
+  </rule>
+
+  <rule id="100104" level="8">
+    <if_sid>5716</if_sid>
+    <match>wmic</match>
+    <field name="data" type="pcre2">(?i)remote</field>
+    <description>Lateral Movement WMI - WMI remote execution detected (T1047)</description>
+    <mitre>
+      <id>T1047</id>
+    </mitre>
+    <group>lateral_movement_wmi,execution</group>
+  </rule>
+
+  <rule id="100105" level="8">
+    <if_sid>5716</if_sid>
+    <match>schtasks</match>
+    <field name="data" type="pcre2">(?i)/create</field>
+    <description>Persistence Scheduled Task - New scheduled task creation (T1053.005)</description>
+    <mitre>
+      <id>T1053.005</id>
+    </mitre>
+    <group>persistence_scheduled_task,suspicious_activity</group>
+  </rule>
+
+  <rule id="100106" level="8">
+    <if_sid>5716</if_sid>
+    <field name="data" type="pcre2">(?i)\\Microsoft\\Windows\\CurrentVersion\\Run</field>
+    <description>Persistence Registry Run Key - Registry run key modification detected (T1547.001)</description>
+    <mitre>
+      <id>T1547.001</id>
+    </mitre>
+    <group>persistence_registry_run_key,suspicious_activity</group>
+  </rule>
+
+  <rule id="100107" level="11">
+    <if_sid>5716</if_sid>
+    <field name="data" type="pcre2">(?i)(clear|cleared|clearedthe|wevtutil)</field>
+    <field name="win.system.channel" type="pcre2">(?i)security</field>
+    <description>Defense Evasion Log Clear - Event log cleared detected (T1070.001)</description>
+    <mitre>
+      <id>T1070.001</id>
+    </mitre>
+    <group>defense_evasion_log_clear,unauthorized_access</group>
+  </rule>
+
+  <rule id="100108" level="5">
+    <if_sid>5716</if_sid>
+    <match>systeminfo</match>
+    <description>Discovery System Info - System information enumeration (T1082)</description>
+    <mitre>
+      <id>T1082</id>
+    </mitre>
+    <group>discovery_system_info,reconnaissance</group>
+  </rule>
+
+  <rule id="100109" level="8">
+    <if_sid>5716</if_sid>
+    <field name="data" type="pcre2">(?i)(staging|staged|temp\\data|exfil)</field>
+    <field name="size" type="pcre2">^[1-9]\d{6,}$</field>
+    <description>Collection Data Staging - Large file movement to staging directories (T1074)</description>
+    <mitre>
+      <id>T1074</id>
+    </mitre>
+    <group>collection_data_staging,data_collection</group>
+  </rule>
+
+  <rule id="100110" level="10">
+    <if_sid>5716</if_sid>
+    <field name="bytes_out" type="pcre2">^[1-9]\d{8,}$</field>
+    <field name="dstip" type="pcre2">^(?!10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)(?!127\.)(?!0\.)</field>
+    <description>Exfiltration Over C2 - Large outbound data transfer detected (T1041)</description>
+    <mitre>
+      <id>T1041</id>
+    </mitre>
+    <group>exfiltration_c2,data_exfiltration</group>
+  </rule>
+
+  <rule id="100111" level="10">
+    <if_sid>5716</if_sid>
+    <field name="data" type="pcre2">(?i)(cloudtrail|StopLogging|DeleteTrail|PutEventSelectors)</field>
+    <description>Cloud Trail Tampering - CloudTrail disabled or modified (T1562.008)</description>
+    <mitre>
+      <id>T1562.008</id>
+    </mitre>
+    <group>cloud_trail_tampering,cloud_security</group>
+  </rule>
+
+  <rule id="100112" level="11">
+    <if_sid>5716</if_sid>
+    <field name="data" type="pcre2">(?i)(nsenter|chroot|unshare|capsh|/proc/1/ns)</field>
+    <field name="container_id" type="pcre2">.+</field>
+    <description>Container Escape - Suspicious container host access (T1611)</description>
+    <mitre>
+      <id>T1611</id>
+    </mitre>
+    <group>container_escape,container_security</group>
+  </rule>
+
+  <rule id="100113" level="9">
+    <if_sid>5716</if_sid>
+    <field name="data" type="pcre2">(?i)kubectl.*exec</field>
+    <description>K8s Pod Exec - kubectl exec into pod detected (T1609)</description>
+    <mitre>
+      <id>T1609</id>
+    </mitre>
+    <group>k8s_pod_exec,kubernetes_security</group>
+  </rule>
+
+  <group name="brute_force_ssh,mitre-attack,">
+    <rule id="100100" level="10" />
+  </group>
+
+  <group name="brute_force_rdp,mitre-attack,">
+    <rule id="100101" level="10" />
+  </group>
+
+  <group name="credential_stuffing,mitre-attack,">
+    <rule id="100102" level="9" />
+  </group>
+
+  <group name="lateral_movement_smb,mitre-attack,">
+    <rule id="100103" level="9" />
+  </group>
+
+  <group name="lateral_movement_wmi,mitre-attack,">
+    <rule id="100104" level="8" />
+  </group>
+
+  <group name="persistence_scheduled_task,mitre-attack,">
+    <rule id="100105" level="8" />
+  </group>
+
+  <group name="persistence_registry_run_key,mitre-attack,">
+    <rule id="100106" level="8" />
+  </group>
+
+  <group name="defense_evasion_log_clear,mitre-attack,">
+    <rule id="100107" level="11" />
+  </group>
+
+  <group name="discovery_system_info,mitre-attack,">
+    <rule id="100108" level="5" />
+  </group>
+
+  <group name="collection_data_staging,mitre-attack,">
+    <rule id="100109" level="8" />
+  </group>
+
+  <group name="exfiltration_c2,mitre-attack,">
+    <rule id="100110" level="10" />
+  </group>
+
+  <group name="cloud_trail_tampering,mitre-attack,">
+    <rule id="100111" level="10" />
+  </group>
+
+  <group name="container_escape,mitre-attack,">
+    <rule id="100112" level="11" />
+  </group>
+
+  <group name="k8s_pod_exec,mitre-attack,">
+    <rule id="100113" level="9" />
+  </group>
+</group>

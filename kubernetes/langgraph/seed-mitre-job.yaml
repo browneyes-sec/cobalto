@@ -1,0 +1,46 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: seed-mitre-attack
+  namespace: langgraph-service
+  labels:
+    app: cobalto
+    component: seed-mitre
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: cobalto
+        component: seed-mitre
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: seed-mitre
+          image: ghcr.io/cobalto/seed-mitre:latest
+          imagePullPolicy: Always
+          env:
+            - name: QDRANT_URL
+              value: "http://qdrant-service:6333"
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: cobalto-secrets
+                  key: OPENAI_API_KEY
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          volumeMounts:
+            - name: scripts
+              mountPath: /app/scripts
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: seed-mitre-scripts
+            defaultMode: 0755

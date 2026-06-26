@@ -1,0 +1,279 @@
+{
+  "name": "Cobalto Threat Hunt Scheduling",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 2 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily Hunt Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.OPENCTI_URL}}/graphql",
+        "method": "POST",
+        "headers": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer ={{$env.OPENCTI_API_TOKEN}}"
+            }
+          ]
+        },
+        "body": {
+          "query": "query { indicators(first: 100, filter: {confidence: {lt: 50}, valid_until: {gt: now}}) { edges { node { id value type confidence labels { value } created_at source } } } }"
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "query-opencti-low-confidence",
+      "name": "Query OpenCTI Low-Confidence IOCs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const response = items[0].json;\nconst edges = response?.data?.indicators?.edges || [];\nconst iocs = edges.map(e => e.node).filter(i => i.value && i.value.length > 0);\n\nif (iocs.length === 0) {\n  return [{ json: { has_iocs: false, message: 'No low-confidence IOCs found' } }];\n}\n\nconst chunkSize = 10;\nconst chunks = [];\nfor (let i = 0; i < iocs.length; i += chunkSize) {\n  chunks.push(iocs.slice(i, i + chunkSize));\n}\n\nreturn chunks.map((chunk, idx) => ({\n  json: {\n    has_iocs: true,\n    batch: idx + 1,\n    total_batches: chunks.length,\n    iocs: chunk,\n    ioc_values: chunk.map(i => i.value),\n    hunt_date: new Date().toISOString().split('T')[0]\n  }\n}));"
+      },
+      "id": "process-iocs",
+      "name": "Process IOCs",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [710, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json[\"has_iocs\"]}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-iocs-exist",
+      "name": "IOCs Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [940, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.WAZUH_API_URL}}/alerts",
+        "method": "GET",
+        "headers": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer ={{$env.WAZUH_API_TOKEN}}"
+            }
+          ]
+        },
+        "qs": {
+          "q": "rule.id != 100001 AND timestamp > now-24h",
+          "search": "={{$json[\"ioc_values\"].join(' OR ')}}",
+          "limit": 200
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "query-wazuh-hunt",
+      "name": "Query Wazuh for IOC Matches",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1170, 200]
+    },
+    {
+      "parameters": {
+        "functionCode": "const huntContext = items[0].json;\nconst wazuhResponse = items[1]?.json || {};\nconst alerts = wazuhResponse.data?.affected_items || [];\n\nconst matchedIocs = huntContext.ioc_values.filter(ioc =>\n  alerts.some(a => JSON.stringify(a).includes(ioc))\n);\n\nreturn [{\n  json: {\n    hunt_date: huntContext.hunt_date,\n    total_iocs_hunted: huntContext.ioc_values.length,\n    matched_iocs: matchedIocs,\n    matching_alerts: alerts,\n    match_count: matchedIocs.length,\n    has_matches: matchedIocs.length > 0\n  }\n}];"
+      },
+      "id": "analyze-matches",
+      "name": "Analyze Matches",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [1400, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json[\"has_matches\"]}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "check-matches",
+      "name": "Matches Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1630, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.LANGGRAPH_URL}}/agent/analyze",
+        "method": "POST",
+        "headers": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "body": {
+          "task": "threat_hunt_analysis",
+          "context": {
+            "hunt_date": "={{$json[\"hunt_date\"]}}",
+            "matched_iocs": "={{$json[\"matched_iocs\"]}}",
+            "alert_count": "={{$json[\"match_count\"]}}",
+            "alerts": "={{$json[\"matching_alerts\"]}}",
+            "instructions": "Analyze these confirmed IOC matches. Determine if they indicate a genuine threat, assess blast radius, and recommend containment actions. Provide confidence score and severity classification."
+          }
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "langgraph-analyze",
+      "name": "LangGraph Threat Analysis",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1860, 100]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.THEHIVE_URL}}/api/case",
+        "method": "POST",
+        "headers": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{$env.THEHIVE_API_KEY}}"
+            }
+          ]
+        },
+        "body": {
+          "title": "Threat Hunt - Confirmed IOC Matches (={{$json[\"hunt_date\"]}})",
+          "description": "Automated threat hunt detected confirmed IOC matches.\n\nMatched IOCs: ={{JSON.stringify($json[\"matched_iocs\"])}}\nAlert Count: ={{$json[\"match_count\"]}}\n\nLangGraph Analysis:\n={{$json[\"analysis\"]?.recommendation || \"Pending manual review\"}}",
+          "severity": 3,
+          "flag": true,
+          "tags": ["threat-hunt", "auto-detected", "ioc-match"]
+        }
+      },
+      "id": "create-thehive-case",
+      "name": "Create TheHive Hunt Case",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2100, 100]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SLACK_WEBHOOK_URL}}",
+        "method": "POST",
+        "body": {
+          "text": "*[COBALTO] Threat Hunt Results - ={{$json[\"hunt_date\"]}}*\n\n*Confirmed IOC Matches:* ={{$json[\"match_count\"]}}\n*Matched IOCs:* ={{$json[\"matched_iocs\"].join(', ')}}\n*Alerts in Wazuh:* ={{$json[\"match_count\"]}}\n*TheHive Case:* Created\n*LangGraph Confidence:* ={{$json[\"analysis\"]?.confidence || \"N/A\"}}\n*Recommendation:* ={{$json[\"analysis\"]?.recommendation || \"Manual review required\"}}"
+        }
+      },
+      "id": "slack-match-notification",
+      "name": "Slack Match Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [2340, 100]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SLACK_WEBHOOK_URL}}",
+        "method": "POST",
+        "body": {
+          "text": "*[COBALTO] Threat Hunt Complete - ={{$json[\"hunt_date\"]}}*\n\nNo confirmed IOC matches found in the last 24 hours.\nIOCs evaluated: ={{$json[\"total_iocs_hunted\"]}}\nStatus: All clear."
+        }
+      },
+      "id": "slack-no-match",
+      "name": "Slack No Match",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1170, 420]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SLACK_WEBHOOK_URL}}",
+        "method": "POST",
+        "body": {
+          "text": "*[COBALTO] Daily Threat Hunt*\n\nNo low-confidence IOCs available for hunting today.\nNext scheduled run: Tomorrow at 02:00 UTC."
+        }
+      },
+      "id": "slack-no-iocs",
+      "name": "Slack No IOCs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1170, 500]
+    }
+  ],
+  "connections": {
+    "Daily Hunt Schedule": {
+      "main": [
+        [{"node": "Query OpenCTI Low-Confidence IOCs", "type": "main", "index": 0}]
+      ]
+    },
+    "Query OpenCTI Low-Confidence IOCs": {
+      "main": [
+        [{"node": "Process IOCs", "type": "main", "index": 0}]
+      ]
+    },
+    "Process IOCs": {
+      "main": [
+        [{"node": "IOCs Found?", "type": "main", "index": 0}]
+      ]
+    },
+    "IOCs Found?": {
+      "main": [
+        [{"node": "Query Wazuh for IOC Matches", "type": "main", "index": 0}],
+        [{"node": "Slack No IOCs", "type": "main", "index": 0}]
+      ]
+    },
+    "Query Wazuh for IOC Matches": {
+      "main": [
+        [{"node": "Analyze Matches", "type": "main", "index": 0}]
+      ]
+    },
+    "Analyze Matches": {
+      "main": [
+        [{"node": "Matches Found?", "type": "main", "index": 0}]
+      ]
+    },
+    "Matches Found?": {
+      "main": [
+        [{"node": "LangGraph Threat Analysis", "type": "main", "index": 0}],
+        [{"node": "Slack No Match", "type": "main", "index": 0}]
+      ]
+    },
+    "LangGraph Threat Analysis": {
+      "main": [
+        [
+          {"node": "Create TheHive Hunt Case", "type": "main", "index": 0},
+          {"node": "Slack Match Alert", "type": "main", "index": 0}
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

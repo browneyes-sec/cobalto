@@ -1,0 +1,178 @@
+{
+  "analyzers": [
+    {
+      "name": "VirusTotal_GetReport_3_1",
+      "version": "3.1",
+      "description": "Retrieve full VirusTotal report for a given hash, IP, domain, or URL",
+      "dataTypeList": ["hash", "ip", "domain", "url"],
+      "command": "VirusTotal Analyzer",
+      "configurationItems": [
+        {
+          "name": "apikey",
+          "description": "VirusTotal API key",
+          "type": "string",
+          "multi": false,
+          "required": true
+        },
+        {
+          "name": "proxy",
+          "description": "Proxy URL for internet access",
+          "type": "string",
+          "multi": false,
+          "required": false
+        },
+        {
+          "name": "max_polling_duration",
+          "description": "Maximum polling duration in seconds",
+          "type": "number",
+          "multi": false,
+          "required": false,
+          "defaultValue": 300
+        }
+      ],
+      "configuration": {
+        "checkup": true,
+        "rateLimit": 4,
+        "rateLimitPeriod": 60
+      }
+    },
+    {
+      "name": "AbuseIPDB_1_1",
+      "version": "1.1",
+      "description": "Check IP address reputation using AbuseIPDB database",
+      "dataTypeList": ["ip"],
+      "command": "AbuseIPDB Analyzer",
+      "configurationItems": [
+        {
+          "name": "apikey",
+          "description": "AbuseIPDB API key",
+          "type": "string",
+          "multi": false,
+          "required": true
+        },
+        {
+          "name": "proxy",
+          "description": "Proxy URL for internet access",
+          "type": "string",
+          "multi": false,
+          "required": false
+        },
+        {
+          "name": "max_age",
+          "description": "Maximum age of reports in days",
+          "type": "number",
+          "multi": false,
+          "required": false,
+          "defaultValue": 90
+        },
+        {
+          "name": "confidence_threshold",
+          "description": "Minimum confidence threshold for alerts",
+          "type": "number",
+          "multi": false,
+          "required": false,
+          "defaultValue": 75
+        }
+      ],
+      "configuration": {
+        "checkup": true,
+        "rateLimit": 1,
+        "rateLimitPeriod": 60
+      }
+    },
+    {
+      "name": "MaxMind_GeoIP_2_1",
+      "version": "2.1",
+      "description": "Retrieve GeoIP information for IP addresses using MaxMind databases",
+      "dataTypeList": ["ip"],
+      "command": "MaxMind GeoIP Analyzer",
+      "configurationItems": [
+        {
+          "name": "mmdb_city",
+          "description": "Path to MaxMind City MMDB file",
+          "type": "string",
+          "multi": false,
+          "required": true
+        },
+        {
+          "name": "mmdb_country",
+          "description": "Path to MaxMind Country MMDB file",
+          "type": "string",
+          "multi": false,
+          "required": false
+        },
+        {
+          "name": "mmdb_asn",
+          "description": "Path to MaxMind ASN MMDB file",
+          "type": "string",
+          "multi": false,
+          "required": false
+        }
+      ],
+      "configuration": {
+        "checkup": true,
+        "rateLimit": 0,
+        "rateLimitPeriod": 0
+      }
+    },
+    {
+      "name": "Shodan_Host_1_0",
+      "version": "1.0",
+      "description": "Query Shodan for host information, open ports, and vulnerabilities",
+      "dataTypeList": ["ip"],
+      "command": "Shodan Analyzer",
+      "configurationItems": [
+        {
+          "name": "apikey",
+          "description": "Shodan API key",
+          "type": "string",
+          "multi": false,
+          "required": true
+        },
+        {
+          "name": "proxy",
+          "description": "Proxy URL for internet access",
+          "type": "string",
+          "multi": false,
+          "required": false
+        },
+        {
+          "name": "include_history",
+          "description": "Include historical data in results",
+          "type": "boolean",
+          "multi": false,
+          "required": false,
+          "defaultValue": false
+        }
+      ],
+      "configuration": {
+        "checkup": true,
+        "rateLimit": 1,
+        "rateLimitPeriod": 1
+      }
+    }
+  ],
+  "responder_config": {
+    "max_concurrent_jobs": 10,
+    "job_timeout": 300,
+    "retry_attempts": 3,
+    "retry_delay": 30,
+    "notification_webhook": "https://n8n.cobalto.internal/webhook/cortex-results",
+    "allowed_orgs": ["cobalto-soc"],
+    "rate_limits": {
+      "virus_total": {"requests_per_minute": 4},
+      "abuse_ipdb": {"requests_per_minute": 1},
+      "shodan": {"requests_per_minute": 1},
+      "maxmind": {"requests_per_minute": 0}
+    }
+  },
+  "organizations": [
+    {
+      "name": "cobalto-soc",
+      "description": "Cobalto SOC/MDR Platform Organization",
+      "roles": ["orgadmin", "analyst", "read"],
+      "maxUsers": 50,
+      "enabled": true
+    }
+  ]
+}

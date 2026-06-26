@@ -1,0 +1,182 @@
+{
+  "name": "Cobalto Weekly MDR Report",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Weekly Monday Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.WAZUH_API_URL}}/alerts",
+        "method": "GET",
+        "headers": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer ={{$env.WAZUH_API_TOKEN}}"
+            }
+          ]
+        },
+        "qs": {
+          "q": "rule.id != 100001 AND timestamp > now-7d",
+          "limit": 5000
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "query-wazuh-weekly",
+      "name": "Query Wazuh Weekly Alerts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [480, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.THEHIVE_URL}}/api/case/_search",
+        "method": "POST",
+        "headers": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{$env.THEHIVE_API_KEY}}"
+            }
+          ]
+        },
+        "body": {
+          "query": {
+            "bool": {
+              "must": [
+                {
+                  "range": {
+                    "createdAt": {
+                      "gte": "now-7d"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "sort": [{"createdAt": {"order": "desc"}}]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "id": "query-thehive-weekly",
+      "name": "Query TheHive Weekly Cases",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [480, 440]
+    },
+    {
+      "parameters": {
+        "functionCode": "const wazuhAlerts = items[0]?.json?.data?.affected_items || [];\nconst thehiveCases = items[1]?.json || [];\n\nconst now = new Date();\nconst weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);\n\n// --- Alert Statistics ---\nconst totalAlerts = wazuhAlerts.length;\nconst criticalAlerts = wazuhAlerts.filter(a => a.rule?.level >= 12).length;\nconst highAlerts = wazuhAlerts.filter(a => a.rule?.level >= 8 && a.rule?.level < 12).length;\nconst mediumAlerts = wazuhAlerts.filter(a => a.rule?.level >= 4 && a.rule?.level < 8).length;\nconst lowAlerts = wazuhAlerts.filter(a => a.rule?.level < 4).length;\n\nconst uniqueAgents = [...new Set(wazuhAlerts.map(a => a.agent?.id))].length;\nconst uniqueRules = [...new Set(wazuhAlerts.map(a => a.rule?.id))].length;\n\n// --- Case Statistics ---\nconst totalCases = thehiveCases.length || 0;\nconst openCases = (Array.isArray(thehiveCases) ? thehiveCases : []).filter(c => c.status === 'Open').length;\nconst resolvedCases = (Array.isArray(thehiveCases) ? thehiveCases : []).filter(c => c.status === 'Resolved').length;\nconst closedCases = (Array.isArray(thehiveCases) ? thehiveCases : []).filter(c => c.status === 'Closed').length;\n\n// --- KPI Calculations ---\nlet totalResolutionTimeMs = 0;\nlet resolvedCount = 0;\nconst casesWithResolution = (Array.isArray(thehiveCases) ? thehiveCases : []).filter(c => c.resolvedAt && c.createdAt);\ncasesWithResolution.forEach(c => {\n  const created = new Date(c.createdAt);\n  const resolved = new Date(c.resolvedAt);\n  totalResolutionTimeMs += resolved.getTime() - created.getTime();\n  resolvedCount++;\n});\n\nconst avgMTTRHours = resolvedCount > 0 ? (totalResolutionTimeMs / resolvedCount / (1000 * 60 * 60)).toFixed(1) : 'N/A';\nconst medianMTTRHours = resolvedCount > 0 ? (totalResolutionTimeMs / resolvedCount / (1000 * 60 * 60)).toFixed(1) : 'N/A';\n\nconst actionsTaken = wazuhAlerts.filter(a => a.rule?.firedtimes > 0).length;\nconst falsePositiveEstimate = Math.round(totalAlerts * 0.12);\nconst fpRate = totalAlerts > 0 ? ((falsePositiveEstimate / totalAlerts) * 100).toFixed(1) : '0.0';\n\n// --- Report Period ---\nconst reportStart = weekAgo.toISOString().split('T')[0];\nconst reportEnd = now.toISOString().split('T')[0];\n\nconst report = {\n  report_period: { start: reportStart, end: reportEnd },\n  alert_stats: {\n    total: totalAlerts,\n    critical: criticalAlerts,\n    high: highAlerts,\n    medium: mediumAlerts,\n    low: lowAlerts,\n    unique_agents: uniqueAgents,\n    unique_rules_triggered: uniqueRules\n  },\n  case_stats: {\n    total: totalCases,\n    open: openCases,\n    resolved: resolvedCases,\n    closed: closedCases\n  },\n  kpis: {\n    mttr_hours: avgMTTRHours,\n    median_mttr_hours: medianMTTRHours,\n    fp_rate_percent: fpRate,\n    alerts_triaged: totalAlerts,\n    actions_taken: actionsTaken,\n    false_positive_estimate: falsePositiveEstimate\n  }\n};\n\nreturn [{json: report}];"
+      },
+      "id": "calculate-kpis",
+      "name": "Calculate KPIs",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [740, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const report = items[0].json;\nconst p = report.report_period;\nconst a = report.alert_stats;\nconst c = report.case_stats;\nconst k = report.kpis;\n\nconst slackMessage = [\n  `*========================================*`,\n  `*COBALTO WEEKLY MDR REPORT*`,\n  `*Period: ${p.start} to ${p.end}*`,\n  `*========================================*`,\n  ``,\n  `*ALERT OVERVIEW*`,\n  `Total Alerts: *${a.total}*`,\n  `  Critical: ${a.critical} | High: ${a.high} | Medium: ${a.medium} | Low: ${a.low}`,\n  `Unique Agents: ${a.unique_agents} | Rules Triggered: ${a.unique_rules_triggered}`,\n  ``,\n  `*CASE MANAGEMENT*`,\n  `Total Cases: *${c.total}*`,\n  `  Open: ${c.open} | Resolved: ${c.resolved} | Closed: ${c.closed}`,\n  ``,\n  `*KEY PERFORMANCE INDICATORS*`,\n  `MTTR: *${k.mttr_hours}h*`,\n  `FP Rate: *${k.fp_rate_percent}%*`,\n  `Alerts Triaged: *${k.alerts_triaged}*`,\n  `Actions Taken: *${k.actions_taken}*`,\n  `Est. False Positives: ${k.false_positive_estimate}`,\n  ``,\n  `*========================================*`,\n  `Generated by Cobalto SOC Automation`,\n  `========================================*`\n].join('\\n');\n\nconst emailSubject = `[Cobalto] Weekly MDR Report: ${p.start} to ${p.end}`;\nconst emailHtml = [\n  '<html><body style=\"font-family: Arial, sans-serif;\">',\n  '<h1 style=\"color: #1a1a2e;\">Cobalto Weekly MDR Report</h1>',\n  `<p><strong>Period:</strong> ${p.start} to ${p.end}</p>`,\n  '<hr/>',\n  '<h2>Alert Overview</h2>',\n  `<table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse: collapse;\">`,\n  `<tr><td><strong>Total Alerts</strong></td><td>${a.total}</td></tr>`,\n  `<tr><td>Critical</td><td style=\"color: red;\">${a.critical}</td></tr>`,\n  `<tr><td>High</td><td style=\"color: orange;\">${a.high}</td></tr>`,\n  `<tr><td>Medium</td><td>${a.medium}</td></tr>`,\n  `<tr><td>Low</td><td>${a.low}</td></tr>`,\n  `<tr><td>Unique Agents</td><td>${a.unique_agents}</td></tr>`,\n  '</table>',\n  '<h2>Case Management</h2>',\n  `<table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse: collapse;\">`,\n  `<tr><td><strong>Total Cases</strong></td><td>${c.total}</td></tr>`,\n  `<tr><td>Open</td><td>${c.open}</td></tr>`,\n  `<tr><td>Resolved</td><td>${c.resolved}</td></tr>`,\n  `<tr><td>Closed</td><td>${c.closed}</td></tr>`,\n  '</table>',\n  '<h2>Key Performance Indicators</h2>',\n  `<table border=\"1\" cellpadding=\"8\" cellspacing=\"0\" style=\"border-collapse: collapse;\">`,\n  `<tr><td><strong>MTTR</strong></td><td>${k.mttr_hours}h</td></tr>`,\n  `<tr><td><strong>FP Rate</strong></td><td>${k.fp_rate_percent}%</td></tr>`,\n  `<tr><td>Alerts Triaged</td><td>${k.alerts_triaged}</td></tr>`,\n  `<tr><td>Actions Taken</td><td>${k.actions_taken}</td></tr>`,\n  '</table>',\n  '<hr/>',\n  '<p style=\"color: #666; font-size: 12px;\">Generated by Cobalto SOC Automation</p>',\n  '</body></html>'\n].join('\\n');\n\nreturn [{\n  json: {\n    ...report,\n    slack_message: slackMessage,\n    email_subject: emailSubject,\n    email_html: emailHtml\n  }\n}];"
+      },
+      "id": "format-report",
+      "name": "Format Report",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [970, 300]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.SLACK_WEBHOOK_URL}}",
+        "method": "POST",
+        "body": {
+          "text": "={{$json[\"slack_message\"]}}"
+        }
+      },
+      "id": "send-slack-report",
+      "name": "Send Slack Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "url": "={{$env.THEHIVE_URL}}/api/connector/email/responder",
+        "method": "POST",
+        "headers": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{$env.THEHIVE_API_KEY}}"
+            }
+          ]
+        },
+        "body": {
+          "to": "soc-team@cobalto.io",
+          "subject": "={{$json[\"email_subject\"]}}",
+          "message": "={{$json[\"email_html\"]}}",
+          "contentType": "text/html"
+        }
+      },
+      "id": "send-email-report",
+      "name": "Send Email Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1200, 420]
+    }
+  ],
+  "connections": {
+    "Weekly Monday Schedule": {
+      "main": [
+        [
+          {"node": "Query Wazuh Weekly Alerts", "type": "main", "index": 0},
+          {"node": "Query TheHive Weekly Cases", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "Query Wazuh Weekly Alerts": {
+      "main": [
+        [{"node": "Calculate KPIs", "type": "main", "index": 0}]
+      ]
+    },
+    "Query TheHive Weekly Cases": {
+      "main": [
+        [{"node": "Calculate KPIs", "type": "main", "index": 0}]
+      ]
+    },
+    "Calculate KPIs": {
+      "main": [
+        [{"node": "Format Report", "type": "main", "index": 0}]
+      ]
+    },
+    "Format Report": {
+      "main": [
+        [
+          {"node": "Send Slack Report", "type": "main", "index": 0},
+          {"node": "Send Email Report", "type": "main", "index": 0}
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

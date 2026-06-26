@@ -1,0 +1,456 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: n8n-workflows
+  namespace: cobalto
+  labels:
+    app.kubernetes.io/name: n8n
+    app.kubernetes.io/component: workflows
+    app.kubernetes.io/part-of: cobalto-soc
+data:
+  alert-routing.json: |
+    {
+      "name": "Cobalto Alert Routing",
+      "nodes": [
+        {
+          "parameters": {
+            "httpMethod": "POST",
+            "path": "alert-webhook",
+            "responseMode": "responseNode",
+            "options": {}
+          },
+          "id": "webhook-trigger",
+          "name": "Webhook Trigger",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 1,
+          "position": [250, 300]
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "string": [
+                {
+                  "value1": "={{$json[\"severity\"]}}",
+                  "operation": "equals",
+                  "value2": "critical"
+                }
+              ]
+            }
+          },
+          "id": "check-severity",
+          "name": "Check Severity",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 1,
+          "position": [470, 300]
+        },
+        {
+          "parameters": {
+            "url": "={{$env.SLACK_WEBHOOK_URL}}",
+            "method": "POST",
+            "body": {
+              "text": "*[COBALTO] Critical Alert*\nSource: {{$json[\"source\"]}}\nAlert: {{$json[\"title\"]}}\nSeverity: {{$json[\"severity\"]}}\nTime: {{$json[\"timestamp\"]}}"
+            }
+          },
+          "id": "slack-critical",
+          "name": "Slack Critical Alert",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 3,
+          "position": [700, 200]
+        },
+        {
+          "parameters": {
+            "url": "={{$env.THEHIVE_URL}}/api/case",
+            "method": "POST",
+            "headers": {
+              "parameters": [
+                {
+                  "name": "X-Api-Key",
+                  "value": "={{$env.THEHIVE_API_KEY}}"
+                }
+              ]
+            },
+            "body": {
+              "title": "Critical Alert: {{$json[\"title\"]}}",
+              "description": "Auto-created from alert routing workflow.\n\nSource: {{$json[\"source\"]}}\nDetails: {{$json[\"description\"]}}",
+              "severity": 2,
+              "flag": false
+            }
+          },
+          "id": "create-case",
+          "name": "Create TheHive Case",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 3,
+          "position": [700, 400]
+        },
+        {
+          "parameters": {
+            "respondWith": "json",
+            "responseBody": "={{JSON.stringify({status: \"received\", routed: true})}}"
+          },
+          "id": "respond-ok",
+          "name": "Respond OK",
+          "type": "n8n-nodes-base.respondToWebhook",
+          "typeVersion": 1,
+          "position": [920, 300]
+        }
+      ],
+      "connections": {
+        "Webhook Trigger": {
+          "main": [
+            [{"node": "Check Severity", "type": "main", "index": 0}]
+          ]
+        },
+        "Check Severity": {
+          "main": [
+            [
+              {"node": "Slack Critical Alert", "type": "main", "index": 0},
+              {"node": "Create TheHive Case", "type": "main", "index": 0}
+            ],
+            [{"node": "Respond OK", "type": "main", "index": 0}]
+          ]
+        },
+        "Slack Critical Alert": {
+          "main": [[{"node": "Respond OK", "type": "main", "index": 0}]]
+        },
+        "Create TheHive Case": {
+          "main": [[{"node": "Respond OK", "type": "main", "index": 0}]]
+        }
+      },
+      "active": false,
+      "settings": {
+        "executionOrder": "v1"
+      }
+    }
+
+  response-approval.json: |
+    {
+      "name": "Cobalto Response Approval",
+      "nodes": [
+        {
+          "parameters": {
+            "httpMethod": "POST",
+            "path": "response-request",
+            "responseMode": "lastNode",
+            "options": {}
+          },
+          "id": "approval-trigger",
+          "name": "Approval Trigger",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 1,
+          "position": [250, 300]
+        },
+        {
+          "parameters": {
+            "functionCode": "const alert = items[0].json;\nconst riskScore = alert.risk_score || 0;\nconst requiresApproval = riskScore >= 70 || alert.severity === 'critical';\n\nreturn [{\n  json: {\n    ...alert,\n    requires_approval: requiresApproval,\n    action_type: requiresApproval ? 'block' : 'isolate',\n    approval_status: requiresApproval ? 'pending' : 'auto_approved'\n  }\n}];"
+          },
+          "id": "evaluate-risk",
+          "name": "Evaluate Risk",
+          "type": "n8n-nodes-base.function",
+          "typeVersion": 1,
+          "position": [470, 300]
+        },
+        {
+          "parameters": {
+            "conditions": {
+              "boolean": [
+                {
+                  "value1": "={{$json[\"requires_approval\"]}}",
+                  "value2": true
+                }
+              ]
+            }
+          },
+          "id": "check-approval-needed",
+          "name": "Approval Needed?",
+          "type": "n8n-nodes-base.if",
+          "typeVersion": 1,
+          "position": [690, 300]
+        },
+        {
+          "parameters": {
+            "url": "={{$env.SLACK_WEBHOOK_URL}}",
+            "method": "POST",
+            "body": {
+              "text": "*[COBALTO] Response Approval Required*\nAlert: {{$json[\"title\"]}}\nRisk Score: {{$json[\"risk_score\"]}}\nProposed Action: {{$json[\"action_type\"]}}\nHost: {{$json[\"agent_name\"]}}\n\nReply `approve <alert_id>` or `deny <alert_id>`"
+            }
+          },
+          "id": "request-approval",
+          "name": "Request Slack Approval",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 3,
+          "position": [920, 200]
+        },
+        {
+          "parameters": {
+            "url": "={{$env.THEHIVE_URL}}/api/connector/email/responder",
+            "method": "POST",
+            "headers": {
+              "parameters": [
+                {
+                  "name": "X-Api-Key",
+                  "value": "={{$env.THEHIVE_API_KEY}}"
+                }
+              ]
+            },
+            "body": {
+              "alert_id": "={{$json[\"alert_id\"]}}",
+              "to": "soc@cobalto.io",
+              "subject": "Action Required: Auto-response approval for {{$json[\"title\"]}}",
+              "message": "A high-risk alert requires manual approval for automated response."
+            }
+          },
+          "id": "email-approval",
+          "name": "Email Approval Request",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 3,
+          "position": [920, 400]
+        },
+        {
+          "parameters": {
+            "url": "={{$env.WAZUH_API_URL}}/active-response",
+            "method": "POST",
+            "headers": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "Bearer ={{$env.WAZUH_API_TOKEN}}"
+                }
+              ]
+            },
+            "body": {
+              "agent_id": "={{$json[\"agent_id\"]}}",
+              "command": "={{$json[\"action_type\"]}}",
+              "alert_id": "={{$json[\"alert_id\"]}}"
+            }
+          },
+          "id": "execute-response",
+          "name": "Execute Auto-Response",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 3,
+          "position": [920, 600]
+        }
+      ],
+      "connections": {
+        "Approval Trigger": {
+          "main": [
+            [{"node": "Evaluate Risk", "type": "main", "index": 0}]
+          ]
+        },
+        "Evaluate Risk": {
+          "main": [
+            [{"node": "Approval Needed?", "type": "main", "index": 0}]
+          ]
+        },
+        "Approval Needed?": {
+          "main": [
+            [
+              {"node": "Request Slack Approval", "type": "main", "index": 0},
+              {"node": "Email Approval Request", "type": "main", "index": 0}
+            ],
+            [{"node": "Execute Auto-Response", "type": "main", "index": 0}]
+          ]
+        }
+      },
+      "active": false,
+      "settings": {
+        "executionOrder": "v1"
+      }
+    }
+
+  enrichment-pipeline.json: |
+    {
+      "name": "Cobalto Enrichment Pipeline",
+      "nodes": [
+        {
+          "parameters": {
+            "httpMethod": "POST",
+            "path": "enrich-alert",
+            "responseMode": "lastNode",
+            "options": {}
+          },
+          "id": "enrich-trigger",
+          "name": "Enrichment Trigger",
+          "type": "n8n-nodes-base.webhook",
+          "typeVersion": 1,
+          "position": [250, 300]
+        },
+        {
+          "parameters": {
+            "url": "={{$env.OPENCTI_URL}}/graphql",
+            "method": "POST",
+            "headers": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "Bearer ={{$env.OPENCTI_API_TOKEN}}"
+                }
+              ]
+            },
+            "body": {
+              "query": "query { indicators(filter: {key: {eq: \"{{$json[\"ioc\"]}}\"}, confidence: {lt: 50}}) { edges { node { id value type confidence created_at } } } }"
+            }
+          },
+          "id": "query-opencti",
+          "name": "Query OpenCTI",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 3,
+          "position": [470, 300]
+        },
+        {
+          "parameters": {
+            "functionCode": "const opencti = items[0].json;\nconst iocs = opencti?.data?.indicators?.edges || [];\nconst enriched = [];\n\nfor (const item of items) {\n  enriched.push({\n    json: {\n      ...item.json,\n      opencti_matches: iocs.length,\n      opencti_data: iocs.map(e => e.node)\n    }\n  });\n}\n\nreturn enriched.length > 0 ? enriched : [{json: {no_data: true}}];"
+          },
+          "id": "merge-results",
+          "name": "Merge OpenCTI Results",
+          "type": "n8n-nodes-base.function",
+          "typeVersion": 1,
+          "position": [690, 300]
+        },
+        {
+          "parameters": {
+            "url": "={{$env.CORTEX_URL}}/api/analyzer/{{$json[\"analyzer_id\"]}}/run",
+            "method": "POST",
+            "headers": {
+              "parameters": [
+                {
+                  "name": "X-Api-Key",
+                  "value": "={{$env.CORTEX_API_KEY}}"
+                }
+              ]
+            },
+            "body": {
+              "data": "={{$json[\"ioc\"]}}",
+              "dataType": "ip"
+            }
+          },
+          "id": "run-cortex-analyzer",
+          "name": "Run Cortex Analyzer",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 3,
+          "position": [920, 200]
+        },
+        {
+          "parameters": {
+            "url": "={{$env.WAZUH_API_URL}}/alerts",
+            "method": "GET",
+            "headers": {
+              "parameters": [
+                {
+                  "name": "Authorization",
+                  "value": "Bearer ={{$env.WAZUH_API_TOKEN}}"
+                }
+              ]
+            },
+            "qs": {
+              "q": "rule.id != 100001 AND timestamp > now-24h",
+              "search": "={{$json[\"ioc\"]}}",
+              "limit": 100
+            }
+          },
+          "id": "query-wazuh-alerts",
+          "name": "Query Wazuh Alerts",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 3,
+          "position": [920, 420]
+        },
+        {
+          "parameters": {
+            "functionCode": "const enriched = items[0].json;\nconst cortexResult = items[1]?.json || {};\nconst wazuhAlerts = items[2]?.json || {};\n\nconst finalPayload = {\n  ...enriched,\n  cortex_analysis: cortexResult,\n  wazuh_matching_alerts: wazuhAlerts.data?.affected_items || [],\n  alert_count: (wazuhAlerts.data?.affected_items || []).length,\n  enriched_at: new Date().toISOString()\n};\n\nreturn [{json: finalPayload}];"
+          },
+          "id": "build-final-payload",
+          "name": "Build Final Payload",
+          "type": "n8n-nodes-base.function",
+          "typeVersion": 1,
+          "position": [1160, 300]
+        },
+        {
+          "parameters": {
+            "url": "={{$env.THEHIVE_URL}}/api/alert",
+            "method": "POST",
+            "headers": {
+              "parameters": [
+                {
+                  "name": "X-Api-Key",
+                  "value": "={{$env.THEHIVE_API_KEY}}"
+                }
+              ]
+            },
+            "body": {
+              "title": "Enriched Alert: {{$json[\"title\"]}}",
+              "description": "Auto-enriched via Cobalto pipeline.\n\nOpenCTI Matches: {{$json[\"opencti_matches\"]}}\nWazuh Alerts: {{$json[\"alert_count\"]}}\nCortex Score: {{$json[\"cortex_analysis\"]?.report?.taxonomies?.[0]?.value || \"N/A\"}}",
+              "severity": 2,
+              "source": "cobalto-enrichment",
+              "flag": false,
+              "artifacts": [
+                {
+                  "dataType": "ip",
+                  "data": "={{$json[\"ioc\"]}}",
+                  "message": "IOC from enrichment pipeline"
+                }
+              ]
+            }
+          },
+          "id": "create-thehive-alert",
+          "name": "Create TheHive Alert",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 3,
+          "position": [1400, 300]
+        },
+        {
+          "parameters": {
+            "url": "={{$env.SLACK_WEBHOOK_URL}}",
+            "method": "POST",
+            "body": {
+              "text": "*[COBALTO] Enrichment Complete*\nIOC: {{$json[\"ioc\"]}}\nOpenCTI Matches: {{$json[\"opencti_matches\"]}}\nWazuh Alerts: {{$json[\"alert_count\"]}}\nTheHive Alert Created: Yes"
+            }
+          },
+          "id": "slack-notify",
+          "name": "Slack Notification",
+          "type": "n8n-nodes-base.httpRequest",
+          "typeVersion": 3,
+          "position": [1620, 300]
+        }
+      ],
+      "connections": {
+        "Enrichment Trigger": {
+          "main": [
+            [{"node": "Query OpenCTI", "type": "main", "index": 0}]
+          ]
+        },
+        "Query OpenCTI": {
+          "main": [
+            [{"node": "Merge OpenCTI Results", "type": "main", "index": 0}]
+          ]
+        },
+        "Merge OpenCTI Results": {
+          "main": [
+            [
+              {"node": "Run Cortex Analyzer", "type": "main", "index": 0},
+              {"node": "Query Wazuh Alerts", "type": "main", "index": 0}
+            ]
+          ]
+        },
+        "Run Cortex Analyzer": {
+          "main": [
+            [{"node": "Build Final Payload", "type": "main", "index": 0}]
+          ]
+        },
+        "Query Wazuh Alerts": {
+          "main": [
+            [{"node": "Build Final Payload", "type": "main", "index": 0}]
+          ]
+        },
+        "Build Final Payload": {
+          "main": [
+            [
+              {"node": "Create TheHive Alert", "type": "main", "index": 0},
+              {"node": "Slack Notification", "type": "main", "index": 0}
+            ]
+          ]
+        }
+      },
+      "active": false,
+      "settings": {
+        "executionOrder": "v1"
+      }
+    }

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<group name="n8n-webhook,alert-forwarding,">
+  <rule id="100200" level="12">
+    <if_sid>100100,100101,100102,100103,100104,100105,100106,100107,100108,100109,100110,100111,100112,100113</if_sid>
+    <options>no_log</options>
+    <description>Forward high-severity alerts to n8n webhook for automated response (level >= 7)</description>
+    <group>n8n-forward,webhook</group>
+    <action>https://n8n.cobalto.internal/webhook/wazuh-alerts</action>
+  </rule>
+
+  <rule id="100201" level="13">
+    <if_sid>100100,100101,100102,100103,100104,100105,100106,100107,100108,100109,100110,100111,100112,100113</if_sid>
+    <options>no_log</options>
+    <description>Critical alert - Forward to n8n webhook AND create TheHive case (level >= 9)</description>
+    <group>n8n-forward,thehive-case,webhook</group>
+    <action>https://n8n.cobalto.internal/webhook/wazuh-critical-alerts</action>
+  </rule>
+
+  <rule id="100202" level="12">
+    <if_sid>100100,100101,100110,100111,100112</if_sid>
+    <options>no_log</options>
+    <description>High-priority brute force / exfil / cloud / container - immediate n8n notification</description>
+    <group>n8n-forward,high-priority,webhook</group>
+    <action>https://n8n.cobalto.internal/webhook/wazuh-immediate</action>
+  </rule>
+
+  <rule id="100203" level="8">
+    <if_sid>100104,100105,100106,100109,100113</if_sid>
+    <options>no_log</options>
+    <description>Lateral movement / persistence / collection - batch notification to n8n</description>
+    <group>n8n-forward,batch-notification,webhook</group>
+    <action>https://n8n.cobalto.internal/webhook/wazuh-batch</action>
+  </rule>
+
+  <rule id="100204" level="7">
+    <if_sid>100108</if_sid>
+    <options>no_log</options>
+    <description>Discovery activity - informational webhook to n8n for enrichment</description>
+    <group>n8n-forward,discovery,webhook</group>
+    <action>https://n8n.cobalto.internal/webhook/wazuh-enrichment</action>
+  </rule>
+</group>
