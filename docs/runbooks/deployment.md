@@ -184,6 +184,73 @@ kubectl apply -f infra/kubernetes/base/
 kubectl apply -k infra/kubernetes/overlays/production/
 ```
 
+## Multi-Tenant Namespace Isolation
+
+For production deployments with multiple tenants, use the namespace isolation module.
+
+### Deploy Tenant Namespace
+
+```bash
+# Using Terraform
+cd infra/terraform/environments/production
+
+# Plan tenant namespace
+terraform plan -target=module.tenant_namespace["acme-corp"] -out=tfplan
+
+# Apply
+terraform apply tfplan
+```
+
+### Verify Isolation
+
+```bash
+# Check namespace exists
+kubectl get namespaces | grep cobalto-
+
+# Check network policies
+kubectl get networkpolicies -n cobalto-acme-corp
+
+# Check resource quotas
+kubectl get resourcequotas -n cobalto-acme-corp
+
+# Check limit ranges
+kubectl get limitranges -n cobalto-acme-corp
+```
+
+### Tenant Configuration
+
+Edit `infra/terraform/environments/production/main.tf` to add tenants:
+
+```hcl
+module "tenant_namespace" {
+  source = "../../modules/namespace-isolation"
+
+  for_each = {
+    "new-tenant" = {
+      tenant_id = "tenant-new-003"
+      namespace = "cobalto-new-tenant"
+      labels = {
+        "tenant.io/name" = "new-tenant"
+        "tenant.io/tier" = "standard"
+      }
+      resource_quota = {
+        requests_cpu    = "4"
+        requests_memory = "8Gi"
+        limits_cpu      = "8"
+        limits_memory   = "16Gi"
+        pods            = 50
+        services        = 20
+        secrets         = 50
+        configmaps      = 50
+        pvcs            = 10
+      }
+    }
+  }
+
+  # ... other config
+}
+```
+
 ## Monitoring & Alerting
 
 ### Health Checks

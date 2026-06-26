@@ -21,8 +21,8 @@ tags:
     description: Health and readiness checks
   - name: Agents
     description: Agent execution endpoints
-  - name: Alerts
-    description: Alert processing endpoints
+  - name: Webhooks
+    description: Alert ingestion webhook endpoints
   - name: MCP
     description: Model Context Protocol endpoints
 
@@ -82,6 +82,91 @@ paths:
                 $ref: '#/components/schemas/AnalyzeResponse'
         '500':
           description: Analysis failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhook/wazuh:
+    post:
+      tags: [Webhooks]
+      summary: Wazuh alert webhook
+      description: Receives alerts from Wazuh via n8n and routes through supervisor
+      operationId: wazuhWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WazuhWebhookPayload'
+      responses:
+        '200':
+          description: Alert processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+        '500':
+          description: Processing failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhook/generic:
+    post:
+      tags: [Webhooks]
+      summary: Generic webhook
+      description: Generic webhook for other SIEM/EDR integrations
+      operationId: genericWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Any JSON payload
+      responses:
+        '200':
+          description: Alert processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+        '500':
+          description: Processing failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhook/n8n:
+    post:
+      tags: [Webhooks]
+      summary: n8n callback
+      description: Callback endpoint for n8n workflow triggers
+      operationId: n8nCallback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/N8NCallbackPayload'
+      responses:
+        '200':
+          description: Action triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+        '400':
+          description: Unknown action
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Processing failed
           content:
             application/json:
               schema:
@@ -581,6 +666,98 @@ components:
         timestamp:
           type: string
           format: date-time
+
+    WazuhWebhookPayload:
+      type: object
+      required: [alert_id, alert]
+      properties:
+        alert_id:
+          type: string
+          description: Unique alert identifier
+        alert:
+          $ref: '#/components/schemas/WazuhAlert'
+        tenant_id:
+          type: string
+          description: Tenant identifier
+        source:
+          type: string
+          default: wazuh
+        metadata:
+          type: object
+          description: Additional metadata
+
+    WazuhAlert:
+      type: object
+      properties:
+        rule_id:
+          type: string
+        rule_level:
+          type: integer
+        rule_description:
+          type: string
+        rule_groups:
+          type: string
+        rule_mitre:
+          type: object
+          properties:
+            technique:
+              type: string
+            tactic:
+              type: string
+        agent_id:
+          type: string
+        agent_name:
+          type: string
+        srcip:
+          type: string
+        dstip:
+          type: string
+        srcport:
+          type: integer
+        dstport:
+          type: integer
+        protocol:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        full_log:
+          type: string
+        location:
+          type: string
+
+    WebhookResponse:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        status:
+          type: string
+          enum: [processed, error]
+        routing:
+          type: object
+        duration_ms:
+          type: number
+        error:
+          type: string
+
+    N8NCallbackPayload:
+      type: object
+      required: [action, data]
+      properties:
+        action:
+          type: string
+          description: Action to trigger
+          enum: [triage]
+        data:
+          type: object
+          properties:
+            alert_id:
+              type: string
+            alert:
+              type: object
+            context:
+              type: object
 
     MCPTool:
       type: object
