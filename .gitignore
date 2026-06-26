@@ -51,4 +51,4 @@ secrets/
 
 # Local development
 .local/
-dev/
+dev/.playbook_versions/
