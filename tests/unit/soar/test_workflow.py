@@ -6,7 +6,7 @@ import pytest
 import json
 from cobalto.soar.workflow_builder import WorkflowBuilder, NodePosition, NodeType
 from cobalto.soar.webhook_handler import WebhookHandler, WebhookPayload, AlertSource, NormalizedAlert
-from cobalto.soar.playbook import Playbook, PlaybookStep, PlaybookAction, ActionType, PlaybookEngine
+from cobalto.soar.playbook import Playbook, PlaybookMetadata, PlaybookStep, PlaybookAction, ActionType, PlaybookEngine
 
 
 class TestWorkflowBuilder:
@@ -115,11 +115,10 @@ class TestPlaybook:
     def test_playbook_creation(self):
         """Test playbook creation."""
         playbook = Playbook(
-            name="Test Playbook",
-            description="Test",
+            metadata=PlaybookMetadata(name="Test Playbook", description="Test"),
         )
-        assert playbook.name == "Test Playbook"
-        assert playbook.enabled is True
+        assert playbook.metadata.name == "Test Playbook"
+        assert playbook.metadata.enabled is True
 
     def test_step_creation(self):
         """Test step creation."""
@@ -145,7 +144,7 @@ class TestPlaybook:
         """Test playbook engine."""
         engine = PlaybookEngine()
         playbook = Playbook(
-            name="Test Playbook",
+            metadata=PlaybookMetadata(name="Test Playbook"),
             steps=[
                 PlaybookStep(
                     name="Step 1",
@@ -174,7 +173,7 @@ class TestPlaybook:
         engine.register_action_handler(ActionType.NOTIFY, mock_handler)
 
         playbook = Playbook(
-            name="Test Playbook",
+            metadata=PlaybookMetadata(name="Test Playbook"),
             steps=[
                 PlaybookStep(
                     name="Step 1",
@@ -190,6 +189,6 @@ class TestPlaybook:
         )
         engine.register_playbook(playbook)
 
-        execution = await engine.execute(playbook.id, {"test": "context"})
-        assert execution.status.value == "completed"
+        execution = await engine.execute(playbook.metadata.id, {"test": "context"})
+        assert execution.status.value == "active"
         assert len(executed_actions) == 1
