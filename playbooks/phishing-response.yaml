@@ -1,0 +1,142 @@
+metadata:
+  id: "phishing-response"
+  name: Phishing Email Response
+  description: Automated response to phishing email alerts
+  version: "1.0.0"
+  author: SOC Team
+  status: active
+  tags:
+    - phishing
+    - email
+    - automated
+  triggers:
+    - "rule_groups contains phishing"
+    - "rule_id == 8501"
+  min_cobalto_version: "0.1.0"
+  references:
+    - "https://attack.mitre.org/techniques/T1566/"
+
+steps:
+  - name: Triage
+    description: Initial phishing alert triage
+    actions:
+      - name: Parse Alert
+        action_type: enrich
+        parameters:
+          type: parse_alert
+          alert_id: "{{alert_id}}"
+      - name: Extract URL IOCs
+        action_type: enrich
+        parameters:
+          type: extract_urls
+          email_subject: "{{email_subject}}"
+          email_body: "{{email_body}}"
+      - name: Check URL Reputation
+        action_type: query
+        parameters:
+          type: url_reputation
+          urls: "{{extracted_urls}}"
+
+  - name: Investigation
+    description: Investigate phishing attempt
+    parallel: true
+    actions:
+      - name: Check Sender Reputation
+        action_type: query
+        parameters:
+          type: email_reputation
+          sender: "{{sender_email}}"
+          sender_domain: "{{sender_domain}}"
+      - name: Search for Similar Emails
+        action_type: query
+        parameters:
+          type: email_search
+          subject_pattern: "{{email_subject}}"
+          sender: "{{sender_email}}"
+          time_range: "24h"
+      - name: Check Attachment Reputation
+        action_type: query
+        parameters:
+          type: file_reputation
+          hash: "{{attachment_hash}}"
+          hash_type: sha256
+
+  - name: Containment
+    description: Contain the phishing threat
+    actions:
+      - name: Quarantine Email
+        action_type: custom
+        parameters:
+          type: quarantine_email
+          email_id: "{{email_id}}"
+          scope: "all_recipients"
+      - name: Block Sender Domain
+        action_type: block_ip
+        parameters:
+          type: domain
+          domain: "{{sender_domain}}"
+          reason: "Phishing domain"
+          duration: "30d"
+      - name: Block Malicious URLs
+        action_type: block_ip
+        parameters:
+          type: url
+          urls: "{{malicious_urls}}"
+          scope: "organization"
+
+  - name: User Notification
+    description: Notify affected users
+    actions:
+      - name: Alert Affected Users
+        action_type: notify
+        parameters:
+          type: email
+          recipients: "{{affected_users}}"
+          subject: "Security Alert: Phishing Email Detected"
+          body: |
+            A phishing email has been detected and quarantined.
+            
+            Subject: {{email_subject}}
+            From: {{sender_email}}
+            
+            If you clicked any links or opened attachments, please contact the SOC immediately.
+      - name: Report to Abuse
+        action_type: custom
+        parameters:
+          type: report_abuse
+          sender: "{{sender_email}}"
+          sender_domain: "{{sender_domain}}"
+          urls: "{{malicious_urls}}"
+          attachments: "{{attachment_details}}"
+
+  - name: Documentation
+    description: Document the incident
+    actions:
+      - name: Create Case
+        action_type: custom
+        parameters:
+          type: create_case
+          title: "PHISH-{{alert_id}} - {{sender_domain}}"
+          description: "Phishing email targeting {{affected_users_count}} users"
+          severity: "{{severity}}"
+          tags:
+            - phishing
+            - "{{sender_domain}}"
+      - name: Add IOCs to Intel
+        action_type: custom
+        parameters:
+          type: add_iocs
+          iocs:
+            - type: domain
+              value: "{{sender_domain}}"
+              tags: [phishing]
+            - type: url
+              values: "{{malicious_urls}}"
+              tags: [phishing, malicious-url]
+          confidence: 90
+          tlp: amber
+
+variables:
+  auto_quarantine: true
+  notify_channel: "#security-alerts"
+  retention_days: 90
