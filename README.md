@@ -5,35 +5,47 @@
 Cobalto is a multi-agent AI system for autonomous threat detection, investigation, and automated response. Built on LangGraph, Wazuh, OpenCTI, and TheHive for enterprise-grade security operations.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    COBALTO ARCHITECTURE                         │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
-│  │ Wazuh    │  │ OpenCTI  │  │ TheHive  │  │ Cortex   │       │
-│  │ SIEM/XDR │  │ Threat   │  │ Case Mgmt│  │ Enrich   │       │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘       │
-│       │              │              │              │              │
-│       └──────────────┴──────┬───────┴──────────────┘              │
-│                             │                                    │
-│                    ┌────────▼────────┐                          │
-│                    │   n8n SOAR      │                          │
-│                    │  Workflow Engine │                          │
-│                    └────────┬────────┘                          │
-│                             │                                    │
-│                    ┌────────▼────────┐                          │
-│                    │  LangGraph AI   │                          │
-│                    │  Agent Service  │                          │
-│                    └────────┬────────┘                          │
-│                             │                                    │
-│       ┌─────────────────────┼─────────────────────┐            │
-│       │                     │                     │            │
-│  ┌────▼─────┐  ┌────────────▼──┐  ┌──────────────▼┐           │
-│  │ Triage   │  │ Analysis      │  │ Response      │           │
-│  │ Agent    │──▶ Agent         │──▶ Agent         │           │
-│  └──────────┘  └───────────────┘  └───────────────┘           │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+                              +-----------------+
+                              |     Wazuh       |
+                              |    (SIEM)       |
+                              +--------+--------+
+                                       |
+                                       v
++------------------+    +------------------+    +------------------+
+|    n8n (SOAR)    |    |  Webhook Receiver|    |  External SIEM   |
+|  Workflow Engine |    |  /webhook/wazuh  |    |  /webhook/generic|
++--------+---------+    +--------+---------+    +--------+---------+
+         |                       |                       |
+         +-----------------------+-----------------------+
+                                 |
+                                 v
+                    +--------------------------+
+                    |    MAGENTA SUPERVISOR     |
+                    |    (OSCAR Framework)      |
+                    +-----------+--------------+
+                                |
+            +-------------------+-------------------+
+            |                   |                   |
+            v                   v                   v
+   +----------------+  +----------------+  +----------------+
+   |  SILVER TRIAGE |  | SILVER ANALYSIS|  | SILVER RESPONSE|
+   |                |  |                |  |                |
+   | - MITRE RAG    |  | - OpenCTI      |  | - N8N Execute  |
+   | - Cortex       |  | - MISP         |  | - Wazuh AR     |
+   | - VT Lookup    |  | - ES Query     |  | - Firewall     |
+   +-------+--------+  +-------+--------+  +-------+--------+
+           |                   |                   |
+           v                   v                   v
+   +----------------------------------------------------+
+   |              CONTEXT ENGINE (5-Layer)               |
+   |  Semantic | Operational | Intelligence | Policy | Memory  |
+   +----------------------------------------------------+
+           |                   |                   |
+           v                   v                   v
+   +----------------+  +----------------+  +----------------+
+   |   APPROVAL     |  |    AUDIT       |  |    CASE        |
+   |   SERVICE      |  |    SERVICE     |  |    SERVICE     |
+   +----------------+  +----------------+  +----------------+
 ```
 
 ## Quick Start
@@ -64,39 +76,109 @@ docker compose up -d
 # - Wazuh Dashboard: http://localhost:5601
 ```
 
+### Send First Alert
+
+```bash
+curl -X POST http://localhost:8000/webhook/wazuh \
+  -H "Content-Type: application/json" \
+  -d '{
+    "alert_id": "test-001",
+    "alert": {
+      "rule_id": 5712,
+      "rule_level": 8,
+      "rule_description": "Brute force attack detected",
+      "srcip": "203.0.113.45",
+      "dstip": "192.168.1.100"
+    },
+    "source": "wazuh"
+  }'
+```
+
 ### Python Development
 
 ```bash
 # Create virtual environment
-python -m venv venv
-source venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 
 # Install dependencies
-pip install -e ".[dev,agent,soar,intel,vector]"
+pip install -e ".[dev]"
 
 # Run tests
-pytest tests/ -v
-
-# Run linting
-ruff check .
-ruff format .
-
-# Run type checking
-mypy frameworks/ services/ --ignore-missing-imports
+pytest tests/unit/ -v
 ```
 
-## Architecture
+## Documentation
 
-### Layer Architecture
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/architecture/README.md) | System overview and design |
+| [Context Engine](docs/architecture/context-engine.md) | 5-layer context model |
+| [Silver Agents](docs/architecture/silver-agents.md) | Agent catalog and tools |
+| [Supervisor](docs/architecture/supervisor.md) | OSCAR framework |
+| [Services](docs/architecture/services.md) | Approval, Audit, Case |
+| [Playbook Engine](docs/architecture/playbook-engine.md) | YAML DSL and versioning |
+| [Infrastructure](docs/architecture/infrastructure.md) | EKS, Terraform, Helm |
+| [API Reference](docs/api/openapi.yaml) | OpenAPI specification |
+| [Deployment](docs/runbooks/deployment.md) | Deployment procedures |
+| [Incident Response](docs/runbooks/incident-response.md) | IR procedures |
+| [Load Testing](docs/runbooks/load-testing.md) | Performance testing |
+| [Atomic Red Team](docs/runbooks/atomic-red-team.md) | ATT&CK validation |
+| [Getting Started](docs/development/getting-started.md) | Quick start guide |
+| [Testing](docs/development/testing.md) | Test suite guide |
+| [Contributing](docs/development/contributing.md) | Contribution guide |
+| [Changelog](CHANGELOG.md) | Version history |
 
-| Layer | Concept | Ownership | Description |
-|-------|---------|-----------|-------------|
-| Service | MDR | Cobalt | Managed detection & response for multiple customers |
-| Function | SOC | Cobalt | Central security function: monitoring, hunting, compliance |
-| Platform | Agentic SOAR | Magenta | Multi-tenant automation engine (agents, playbooks, integrations) |
-| Agents | Silver Guards | Magenta | Specialized agents: triage, analysis, hunting, response, documentation |
+## API Endpoints
 
-### C4 System Context
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/metrics` | GET | Prometheus metrics |
+| `/webhook/wazuh` | POST | Wazuh alert ingestion |
+| `/webhook/generic` | POST | Generic SIEM webhook |
+| `/webhook/n8n` | POST | n8n callback |
+| `/agent/analyze` | POST | Analyze alert with supervisor |
+| `/agent/triage` | POST | Triage alert |
+| `/agent/analyze-deep` | POST | Deep analysis |
+| `/agent/threat-intel` | POST | Threat intel lookup |
+| `/agent/response` | POST | Generate response actions |
+
+## Testing
+
+```bash
+# Run all tests (206+ tests)
+pytest tests/unit/ -v
+
+# Run with coverage
+pytest tests/unit/ --cov=frameworks --cov-report=html
+
+# Run load tests
+python -c "from tests.load.load_test import run_load_test; import asyncio; asyncio.run(run_load_test())"
+
+# Run Atomic Red Team validation
+python -c "from tests.atomic_runner import run_atomic_validation; import asyncio; asyncio.run(run_atomic_validation())"
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+See [Contributing Guide](docs/development/contributing.md) for details.
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Support
+
+- **Documentation**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/browneyes-sec/cobalto/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/browneyes-sec/cobalto/discussions)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
