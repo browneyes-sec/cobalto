@@ -1,0 +1,32 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cortex-config
+  namespace: cortex
+  labels:
+    app.kubernetes.io/name: cortex
+data:
+  application.conf: |
+    play.http.secret.key = ${PLAY_SECRET}
+    play.http.secret.key = "changeme"
+    db {
+      driver: "org.postgresql.Driver"
+      url: "jdbc:postgresql://rds-endpoint:5432/cortexdb"
+      user: "cortex"
+      password: "changeme"
+    }
+    search {
+      worker: 1
+      index {
+        name: "cortex"
+        uri: "http://opensearch-cluster-cluster-data:9200"
+      }
+    }
+    analytics {
+      worker: 1
+      index {
+        name: "cortexanalytics"
+        uri: "http://opensearch-cluster-cluster-data:9200"
+      }
+    }
+    organizations.default组织.defaultorg.defaultorg.defaultorg.defaultorg

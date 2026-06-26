@@ -1,0 +1,212 @@
+name: Deploy Pipeline
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: cobalto-platform
+  KUBECONFIG: /tmp/kubeconfig
+
+jobs:
+  determine-env:
+    name: Determine Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      should-deploy: ${{ steps.check.outputs.should-deploy }}
+
+    steps:
+      - name: Set environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "environment=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          else
+            echo "environment=dev" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check CI status
+        id: check
+        run: |
+          if [ "${{ github.event.workflow_run.conclusion }}" = "success" ] || \
+             [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should-deploy=true" >> $GITHUB_OUTPUT
+          else
+            echo "should-deploy=false" >> $GITHUB_OUTPUT
+          fi
+
+  kustomize-build:
+    name: Kustomize Build - ${{ needs.determine-env.outputs.environment }}
+    runs-on: ubuntu-latest
+    needs: determine-env
+    if: needs.determine-env.outputs.should-deploy == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Kustomize
+        uses: imranismail/setup-kustomize@v2
+        with:
+          version: "5.4.1"
+
+      - name: Build manifests
+        run: |
+          ENV=${{ needs.determine-env.outputs.environment }}
+          kustomize build k8s/overlays/${ENV} > /tmp/manifests.yaml
+          echo "--- Generated manifests ---"
+          cat /tmp/manifests.yaml
+
+      - name: Upload manifests
+        uses: actions/upload-artifact@v4
+        with:
+          name: k8s-manifests
+          path: /tmp/manifests.yaml
+
+  kubectl-apply:
+    name: Apply to ${{ needs.determine-env.outputs.environment }}
+    runs-on: ubuntu-latest
+    needs: [determine-env, kustomize-build]
+    if: needs.determine-env.outputs.should-deploy == 'true'
+    environment: ${{ needs.determine-env.outputs.environment }}
+
+    steps:
+      - name: Download manifests
+        uses: actions/download-artifact@v4
+        with:
+          name: k8s-manifests
+          path: /tmp/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name cobalto-${{ needs.determine-env.outputs.environment }} \
+            --region ${{ env.AWS_REGION }} \
+            --kubeconfig ${{ env.KUBECONFIG }}
+
+      - name: Apply manifests
+        run: |
+          kubectl --kubeconfig=${{ env.KUBECONFIG }} \
+            apply -f /tmp/manifests.yaml
+
+      - name: Wait for rollout
+        run: |
+          DEPLOYMENTS=$(kubectl --kubeconfig=${{ env.KUBECONFIG }} \
+            -n cobalto get deployments -o jsonpath='{.items[*].metadata.name}')
+
+          for DEPLOY in $DEPLOYMENTS; do
+            echo "Waiting for rollout: $DEPLOY"
+            kubectl --kubeconfig=${{ env.KUBECONFIG }} \
+              -n cobalto rollout status deployment/${DEPLOY} \
+              --timeout=300s
+          done
+
+  smoke-test:
+    name: Smoke Test - ${{ needs.determine-env.outputs.environment }}
+    runs-on: ubuntu-latest
+    needs: [determine-env, kubectl-apply]
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --name cobalto-${{ needs.determine-env.outputs.environment }} \
+            --region ${{ env.AWS_REGION }} \
+            --kubeconfig ${{ env.KUBECONFIG }}
+
+      - name: Check pod health
+        run: |
+          echo "Checking pod status..."
+          UNHEALTHY=$(kubectl --kubeconfig=${{ env.KUBECONFIG }} \
+            -n cobalto get pods \
+            -o jsonpath='{range .items[?(@.status.phase!="Running")]}{.metadata.name}{"\n"}{end}')
+
+          if [ -n "$UNHEALTHY" ]; then
+            echo "Unhealthy pods:"
+            echo "$UNHEALTHY"
+            exit 1
+          fi
+
+          echo "All pods are running."
+
+      - name: Verify services
+        run: |
+          echo "Checking service endpoints..."
+          SERVICES=$(kubectl --kubeconfig=${{ env.KUBECONFIG }} \
+            -n cobalto get svc -o jsonpath='{.items[*].metadata.name}')
+
+          for SVC in $SERVICES; do
+            ENDPOINTS=$(kubectl --kubeconfig=${{ env.KUBECONFIG }} \
+              -n cobalto get endpoints $SVC \
+              -o jsonpath='{.subsets[*].addresses[*].ip}')
+
+            if [ -z "$ENDPOINTS" ]; then
+              echo "Service $SVC has no endpoints"
+              exit 1
+            fi
+            echo "Service $SVC: OK"
+          done
+
+      - name: Run health check probes
+        run: |
+          python3 -c "
+          import urllib.request
+          import json
+          import sys
+
+          services = {
+              'api-gateway': 'http://api-gateway.cobalto.svc.cluster.local:8080/health',
+              'langgraph-agent': 'http://langgraph-agent.cobalto.svc.cluster.local:8000/health',
+              'n8n': 'http://n8n.cobalto.svc.cluster.local:5678/healthz',
+          }
+
+          failed = []
+          for name, url in services.items():
+              try:
+                  req = urllib.request.Request(url, method='GET')
+                  resp = urllib.request.urlopen(req, timeout=10)
+                  if resp.status == 200:
+                      print(f'{name}: OK')
+                  else:
+                      print(f'{name}: FAILED (status {resp.status})')
+                      failed.append(name)
+              except Exception as e:
+                  print(f'{name}: FAILED ({e})')
+                  failed.append(name)
+
+          if failed:
+              print(f'Failed services: {failed}')
+              sys.exit(1)
+          print('All health checks passed.')
+          "

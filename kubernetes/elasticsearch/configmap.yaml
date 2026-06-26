@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opensearch-config
+  namespace: elasticsearch
+  labels:
+    app: opensearch
+data:
+  opensearch.yml: |
+    cluster.name: cobalto-es
+    node.name: ${HOSTNAME}
+    network.host: 0.0.0.0
+    discovery.seed_hosts:
+      - opensearch-0.opensearch
+      - opensearch-1.opensearch
+      - opensearch-2.opensearch
+    cluster.initial_master_nodes:
+      - opensearch-0
+      - opensearch-1
+      - opensearch-2
+    plugins.security.ssl.transport.pem_enabled: true
+    plugins.security.ssl.transport.pem_filepath: esnode.pem
+    plugins.security.ssl.transport.pem_key_filepath: esnode-key.pem
+    plugins.security.ssl.transport.pem_trusted_filepath: root-ca.pem
+    plugins.security.ssl.transport.enforce_hostname_verification: false
+    plugins.security.ssl.http.enabled: true
+    plugins.security.ssl.http.pem_filepath: esnode.pem
+    plugins.security.ssl.http.pem_key_filepath: esnode-key.pem
+    plugins.security.ssl.http.pem_trusted_filepath: root-ca.pem
+    plugins.security.authcz.admin_dn:
+      - CN=kirk,OU=client,O=client,L=test,C=de
+    plugins.security.audit.type: internal_opensearch
+    plugins.security.enable_snapshot_restore_privilege: true
+    plugins.security.check_snapshot_restore_write_privileges: true
+    plugins.security.restapi.roles_enabled: ["all_access", "security_rest_api_access"]
+    plugins.security.system_indices.enabled: true
+    plugins.security.system_indices.indices: [".plugins-ark-agent", ".opensearch-notifications-config", ".opensearch-notifications", ".opensearch-alerting-config", ".opensearch-alerting", ".opensearch-anomaly-results", ".opensearch-anomaly-detector", ".opensearch-anomaly-checkpoints", ".opensearch-anomaly-detection-state", ".opensearch-reports-definitions", ".opensearch-reports-snapshots", ".opensearch-reports-instances", ".opensearch-segments", ".opensearch-ism-config", ".opensearch-snapshot-repository", ".opensearch-task", ".opensearch-persistence-token"]

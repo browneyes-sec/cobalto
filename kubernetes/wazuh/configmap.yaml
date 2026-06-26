@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wazuh-manager-config
+  namespace: wazuh
+  labels:
+    app.kubernetes.io/name: wazuh-manager
+    app.kubernetes.io/part-of: wazuh
+data:
+  ossec.conf: |
+    <ossec_config>
+      <global>
+        <email_notification>no</email_notification>
+      </global>
+
+      <alerts>
+        <log_alert_level>1</log_alert_level>
+        <email_alert_level>7</email_alert_level>
+      </alerts>
+
+      <command>
+        <name>n8n-webhook</name>
+        <executable>alert_manager</executable>
+        <expect>srcip</expect>
+        <timeout_allowed>yes</timeout_allowed>
+      </command>
+
+      <active-response>
+        <command>host-deny</command>
+        <location>local</location>
+        <rules_id>100101,100102</rules_id>
+      </active-response>
+
+      <global>
+        <jsonout_output>yes</jsonout_output>
+        <alert_log>yes</alert_log>
+      </global>
+
+      <remote>
+        <connection>secure</connection>
+        <port>1514</port>
+        <protocol>tcp</protocol>
+      </remote>
+
+      <remote>
+        <connection>secure</connection>
+        <port>1515</port>
+        <protocol>tcp</protocol>
+      </remote>
+
+      <remote>
+        <connection>secure</connection>
+        <port>55000</port>
+        <protocol>tcp</protocol>
+      </remote>
+
+      <ruleset>
+        <decoder_dir>ruleset/decoders</decoder_dir>
+        <rule_dir>ruleset/rules</rule_dir>
+        <rule_exclude>0215-policy.xml</rule_exclude>
+        <list>etc/shared/manager.conf</list>
+      </ruleset>
+    </ossec_config>

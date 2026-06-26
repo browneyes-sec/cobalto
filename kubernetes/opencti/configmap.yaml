@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: opencti-config
+  namespace: opencti
+  labels:
+    app.kubernetes.io/name: opencti
+    app.kubernetes.io/part-of: opencti
+data:
+  config.yml: |
+    opencti:
+      admin:
+        email: admin@opencti.io
+        password: changeme
+
+    elasticsearch:
+      url: http://elasticsearch:9200
+      index_prefix: opencti
+
+    redis:
+      hostname: redis
+      port: 6379
+
+    rabbitmq:
+      hostname: rabbitmq
+      port: 5672
+      username: guest
+      password: guest

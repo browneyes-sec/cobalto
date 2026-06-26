@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: wazuh-manager
+  namespace: wazuh
+  labels:
+    app.kubernetes.io/name: wazuh-manager
+    app.kubernetes.io/part-of: wazuh
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: wazuh-manager
+  ports:
+    - name: agent
+      port: 1514
+      targetPort: 1514
+      protocol: TCP
+    - name: api
+      port: 55000
+      targetPort: 55000
+      protocol: TCP

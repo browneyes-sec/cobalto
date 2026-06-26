@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opencti-worker
+  namespace: opencti
+  labels:
+    app.kubernetes.io/name: opencti-worker
+    app.kubernetes.io/part-of: opencti
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: opencti-worker
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: opencti-worker
+    spec:
+      containers:
+        - name: opencti-worker
+          image: opencti/platform:6.0.0
+          command:
+            - opencti-worker
+          env:
+            - name: OPENCTI_ES_HOSTS
+              value: "http://elasticsearch:9200"
+            - name: OPENCTI_REDIS_HOSTNAME
+              value: "redis"
+            - name: OPENCTI_RABBITMQ_HOSTNAME
+              value: "rabbitmq"
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1"
+            limits:
+              memory: "2Gi"
+              cpu: "1"

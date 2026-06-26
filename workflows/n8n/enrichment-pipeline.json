@@ -1,0 +1,298 @@
+{
+  "name": "Cobalto SOC - Enrichment Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger",
+      "name": "Every 15 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://opencti.opencti.svc.cluster.local:4000/graphql",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"query\": \"{ observables(first: 100, orderBy: created_at, orderMode: desc, filters: [{ key: \\\"created_at\\\", operator: gt, values: [\\\"{{ $now.minus({ minutes: 15 }).toISO() }}\\\"] }]) { edges { node { id standard_id value type created_at createdBy { name } objectMarking { definitions } } } } }\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-opencti-query",
+      "name": "Query OpenCTI Observables",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "observables",
+              "name": "observables",
+              "value": "={{ $json.data.observables.edges.map(e => e.node) }}",
+              "type": "object"
+            },
+            {
+              "id": "count",
+              "name": "count",
+              "value": "={{ $json.data.observables.edges.length }}",
+              "type": "number"
+            }
+          ]
+        }
+      },
+      "id": "set-observables",
+      "name": "Parse Observables",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-observables",
+              "leftValue": "={{ $json.count }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-has-observables",
+      "name": "Has New Observables?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "http://thehive.thehive.svc.cluster.local:9000/api/v1/case/_search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "status:Open"
+            },
+            {
+              "name": "range",
+              "value": "entities=0-100"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-thehive-cases",
+      "name": "Fetch Active TheHive Cases",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1130, 240]
+    },
+    {
+      "parameters": {
+        "jsCode": "const observables = $input.first().json.observables;\nconst cases = $input.first().json.cases || [];\n\nconst matches = [];\n\nfor (const obs of observables) {\n  for (const caseItem of cases) {\n    const caseArtifacts = caseItem.artifacts || [];\n    for (const artifact of caseArtifacts) {\n      if (artifact.data && artifact.data === obs.value) {\n        matches.push({\n          observable: obs,\n          case_id: caseItem._id,\n          case_title: caseItem.title,\n          match_type: 'exact_value'\n        });\n      }\n    }\n    if (caseItem.description && caseItem.description.includes(obs.value)) {\n      matches.push({\n        observable: obs,\n        case_id: caseItem._id,\n        case_title: caseItem.title,\n        match_type: 'description_reference'\n      });\n    }\n  }\n}\n\nreturn matches.map(m => ({ json: m }));"
+      },
+      "id": "code-match",
+      "name": "Match Observables to Cases",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1350, 240]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "has-matches",
+              "leftValue": "={{ $json.case_id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "exists"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-has-matches",
+      "name": "Has Matches?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1570, 240]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://thehive.thehive.svc.cluster.local:9000/api/v1/case/{{ $json.case_id }}/comment",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"[Automated Enrichment] New intelligence observable matched to this case.\\n\\nObservable: {{ $json.observable.value }}\\nType: {{ $json.observable.type }}\\nStandard ID: {{ $json.observable.standard_id }}\\nMatch Type: {{ $json.match_type }}\\nSource: OpenCTI (auto-enriched at {{ $now.toISO() }})\\n\\nRecommended: Review observable for additional context and threat scoring.\"\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "http-thehive-update",
+      "name": "Update Case with Intelligence",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1790, 180]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://thehive.thehive.svc.cluster.local:9000/api/v1/alert",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"Intelligence Enrichment: {{ $json.observable.value }}\",\n  \"description\": \"Observable {{ $json.observable.value }} ({{ $json.observable.type }}) from OpenCTI matched to active case {{ $json.case_id }}.\\nStandard ID: {{ $json.observable.standard_id }}\\nMatch Type: {{ $json.match_type }}\",\n  \"severity\": 3,\n  \"source\": \"cobalto-enrichment\",\n  \"sourceRef\": \"enrichment-{{ $json.observable.id }}\",\n  \"tags\": [\"enrichment\", \"opencti\", \"auto-matched\"],\n  \"caseTemplate\": null,\n  \"artifacts\": [\n    {\n      \"dataType\": \"{{ $json.observable.type }}\",\n      \"data\": \"{{ $json.observable.value }}\",\n      \"message\": \"Auto-extracted from OpenCTI enrichment pipeline\"\n    }\n  ]\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "http-thehive-alert",
+      "name": "Create TheHive Alert",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1790, 320]
+    }
+  ],
+  "connections": {
+    "Every 15 Minutes": {
+      "main": [
+        [
+          {
+            "node": "Query OpenCTI Observables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query OpenCTI Observables": {
+      "main": [
+        [
+          {
+            "node": "Parse Observables",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Observables": {
+      "main": [
+        [
+          {
+            "node": "Has New Observables?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has New Observables?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Active TheHive Cases",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Fetch Active TheHive Cases": {
+      "main": [
+        [
+          {
+            "node": "Match Observables to Cases",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Match Observables to Cases": {
+      "main": [
+        [
+          {
+            "node": "Has Matches?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Matches?": {
+      "main": [
+        [
+          {
+            "node": "Update Case with Intelligence",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Create TheHive Alert",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "1",
+  "tags": [
+    {
+      "name": "cobalto-soc"
+    },
+    {
+      "name": "enrichment-pipeline"
+    }
+  ]
+}

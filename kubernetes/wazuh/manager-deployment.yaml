@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wazuh-manager
+  namespace: wazuh
+  labels:
+    app.kubernetes.io/name: wazuh-manager
+    app.kubernetes.io/part-of: wazuh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wazuh-manager
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wazuh-manager
+    spec:
+      containers:
+        - name: wazuh-manager
+          image: quay.io/wazuh/wazuh-manager:4.8.0
+          ports:
+            - containerPort: 1514
+              protocol: TCP
+            - containerPort: 1515
+              protocol: TCP
+            - containerPort: 55000
+              protocol: TCP
+          volumeMounts:
+            - name: wazuh-etc
+              mountPath: /etc/wazuh
+            - name: var-ossec-etc
+              mountPath: /var/ossec/etc
+            - name: var-log
+              mountPath: /var/log
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1"
+            limits:
+              memory: "2Gi"
+              cpu: "1"
+          readinessProbe:
+            tcpSocket:
+              port: 55000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+      volumes:
+        - name: wazuh-etc
+          emptyDir: {}
+        - name: var-ossec-etc
+          emptyDir: {}
+        - name: var-log
+          emptyDir: {}

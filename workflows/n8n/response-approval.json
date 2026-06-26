@@ -1,0 +1,481 @@
+{
+  "name": "Cobalto SOC - Response Approval",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "response-approval",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "id": "webhook-langgraph",
+      "name": "LangGraph Response Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "alert_id",
+              "name": "alert_id",
+              "value": "={{ $json.alert_id }}",
+              "type": "string"
+            },
+            {
+              "id": "response_actions",
+              "name": "response_actions",
+              "value": "={{ JSON.stringify($json.response.actions) }}",
+              "type": "string"
+            },
+            {
+              "id": "actions_parsed",
+              "name": "actions_parsed",
+              "value": "={{ JSON.parse($json.response.actions) }}",
+              "type": "object"
+            },
+            {
+              "id": "confidence",
+              "name": "confidence",
+              "value": "={{ $json.response.confidence }}",
+              "type": "number"
+            },
+            {
+              "id": "reasoning",
+              "name": "reasoning",
+              "value": "={{ $json.response.reasoning }}",
+              "type": "string"
+            },
+            {
+              "id": "agent_id",
+              "name": "agent_id",
+              "value": "={{ $json.response.affected_agent_id }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "set-extract",
+      "name": "Extract Response Actions",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "rules": [
+            {
+              "outputIndex": 0,
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.actions_parsed[0].type }}",
+                    "rightValue": "isolate_host",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputIndex": 1,
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.actions_parsed[0].type }}",
+                    "rightValue": "block_ip",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "outputIndex": 2,
+              "conditions": {
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.actions_parsed[0].type }}",
+                    "rightValue": "disable_user",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "id": "switch-action-type",
+      "name": "Switch Action Type",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "channel": "#soc-alerts",
+        "text": ":rotating_light: *SOC Response Approval Required*\n\n*Alert ID:* {{ $json.alert_id }}\n*Action:* `{{ $json.actions_parsed[0].type }}`\n*Target:* {{ $json.actions_parsed[0].target }}\n*Confidence:* {{ $json.confidence }}%\n*Reasoning:* {{ $json.reasoning }}\n\n:warning: This action requires approval within 10 minutes.",
+        "otherOptions": {},
+        "attachments": [
+          {
+            "fallback": "Approve or Reject",
+            "color": "#ff9900",
+            "actions": [
+              {
+                "type": "button",
+                "text": "Approve",
+                "style": "primary",
+                "url": "={{ $env.N8N_BASE_URL }}/webhook/response-callback?action=approve&alert_id={{ $json.alert_id }}&action_type={{ $json.actions_parsed[0].type }}&target={{ $json.actions_parsed[0].target }}"
+              },
+              {
+                "type": "button",
+                "text": "Reject",
+                "style": "danger",
+                "url": "={{ $env.N8N_BASE_URL }}/webhook/response-callback?action=reject&alert_id={{ $json.alert_id }}&action_type={{ $json.actions_parsed[0].type }}&target={{ $json.actions_parsed[0].target }}"
+              }
+            ]
+          }
+        ]
+      },
+      "id": "slack-approval",
+      "name": "Slack Approval Request",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [910, 200],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-credential",
+          "name": "Cobalto SOC Slack"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "response-callback",
+        "responseMode": "lastNode",
+        "responseData": "allEntries"
+      },
+      "id": "webhook-callback",
+      "name": "Approval Callback Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [1130, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-approved",
+              "leftValue": "={{ $json.query.action }}",
+              "rightValue": "approve",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-approved",
+      "name": "Is Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1350, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "check-isolate",
+              "leftValue": "={{ $json.query.action_type }}",
+              "rightValue": "isolate_host",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-isolate-host",
+      "name": "Action: Isolate Host?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1570, 120]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://wazuh.wazuh.svc.cluster.local:55000/active-response",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"command\": \"host_isolation\",\n  \"parameters\": {\n    \"extra_args\": [],\n    \"alert\": {\n      \"agent_id\": \"{{ $json.query.target }}\"\n    }\n  },\n  \"agent_id\": \"{{ $json.query.target }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-wazuh-isolate",
+      "name": "Wazuh Isolate Host",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1790, 60]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://wazuh.wazuh.svc.cluster.local:55000/active-response",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"command\": \"firewall-drop\",\n  \"parameters\": {\n    \"extra_args\": [\"{{ $json.query.target }}\"],\n    \"alert\": {}\n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-wazuh-block-ip",
+      "name": "Wazuh Block IP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1790, 180]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "http://wazuh.wazuh.svc.cluster.local:55000/active-response",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"command\": \"disable-user\",\n  \"parameters\": {\n    \"extra_args\": [\"{{ $json.query.target }}\"],\n    \"alert\": {}\n  }\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-wazuh-disable-user",
+      "name": "Wazuh Disable User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1790, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://thehive.thehive.svc.cluster.local:9000/api/v1/case/{{ $json.query.alert_id }}/comment",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"Response action REJECTED. Action: {{ $json.query.action_type }}, Target: {{ $json.query.target }}. Approval was denied by SOC analyst.\"\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "http-thehive-reject-comment",
+      "name": "TheHive Rejection Comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1790, 420]
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "minutes"
+      },
+      "id": "wait-timeout",
+      "name": "Wait 10 Minutes",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1130, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://thehive.thehive.svc.cluster.local:9000/api/v1/case/{{ $json.alert_id }}/comment",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"message\": \"Response approval TIMED OUT after 10 minutes. No action taken. Action was: {{ $json.actions_parsed[0].type }}, Target: {{ $json.actions_parsed[0].target }}.\"\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "http-thehive-timeout-comment",
+      "name": "TheHive Timeout Comment",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1350, 380]
+    }
+  ],
+  "connections": {
+    "LangGraph Response Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Response Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Response Actions": {
+      "main": [
+        [
+          {
+            "node": "Switch Action Type",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait 10 Minutes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch Action Type": {
+      "main": [
+        [
+          {
+            "node": "Slack Approval Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack Approval Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Slack Approval Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack Approval Request": {
+      "main": [
+        [
+          {
+            "node": "Approval Callback Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Approval Callback Webhook": {
+      "main": [
+        [
+          {
+            "node": "Is Approved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Approved?": {
+      "main": [
+        [
+          {
+            "node": "Action: Isolate Host?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "TheHive Rejection Comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action: Isolate Host?": {
+      "main": [
+        [
+          {
+            "node": "Wazuh Isolate Host",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wazuh Block IP",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wazuh Disable User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 10 Minutes": {
+      "main": [
+        [
+          {
+            "node": "TheHive Timeout Comment",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "1",
+  "tags": [
+    {
+      "name": "cobalto-soc"
+    },
+    {
+      "name": "response-approval"
+    }
+  ]
+}

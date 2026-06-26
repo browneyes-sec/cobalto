@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: qdrant
+  labels:
+    name: qdrant
+    app.kubernetes.io/name: qdrant
+    app.kubernetes.io/part-of: vector-db
+    app.kubernetes.io/managed-by: kustomize

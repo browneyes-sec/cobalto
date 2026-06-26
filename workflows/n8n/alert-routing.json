@@ -1,0 +1,306 @@
+{
+  "name": "Cobalto SOC - Alert Routing",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wazuh-alert",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      },
+      "id": "webhook-wazuh",
+      "name": "Wazuh Alert Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "alert_id",
+              "name": "alert_id",
+              "value": "={{ $json.alert.id }}",
+              "type": "string"
+            },
+            {
+              "id": "rule_id",
+              "name": "rule_id",
+              "value": "={{ $json.alert.rule.id }}",
+              "type": "string"
+            },
+            {
+              "id": "severity",
+              "name": "severity",
+              "value": "={{ parseInt($json.alert.rule.level) }}",
+              "type": "number"
+            },
+            {
+              "id": "description",
+              "name": "description",
+              "value": "={{ $json.alert.rule.description }}",
+              "type": "string"
+            },
+            {
+              "id": "agent_id",
+              "name": "agent_id",
+              "value": "={{ $json.alert.agent.id }}",
+              "type": "string"
+            },
+            {
+              "id": "agent_name",
+              "name": "agent_name",
+              "value": "={{ $json.alert.agent.name }}",
+              "type": "string"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $json.alert.timestamp }}",
+              "type": "string"
+            },
+            {
+              "id": "full_payload",
+              "name": "full_payload",
+              "value": "={{ JSON.stringify($json) }}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "set-parse",
+      "name": "Parse Alert Payload",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "high-severity",
+              "leftValue": "={{ $json.severity }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-high-severity",
+      "name": "Severity >= 7",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://langgraph-agent-service.langgraph.svc.cluster.local/agent/analyze",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "alert_id",
+              "value": "={{ $json.alert_id }}"
+            },
+            {
+              "name": "rule_id",
+              "value": "={{ $json.rule_id }}"
+            },
+            {
+              "name": "severity",
+              "value": "={{ $json.severity }}"
+            },
+            {
+              "name": "description",
+              "value": "={{ $json.description }}"
+            },
+            {
+              "name": "agent_id",
+              "value": "={{ $json.agent_id }}"
+            },
+            {
+              "name": "agent_name",
+              "value": "={{ $json.agent_name }}"
+            },
+            {
+              "name": "timestamp",
+              "value": "={{ $json.timestamp }}"
+            },
+            {
+              "name": "raw_event",
+              "value": "={{ $json.full_payload }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "http-langgraph",
+      "name": "LangGraph Agent Analyze",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [910, 120]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "medium-severity-range",
+              "leftValue": "={{ $json.severity }}",
+              "rightValue": 4,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "medium-severity-max",
+              "leftValue": "={{ $json.severity }}",
+              "rightValue": 6,
+              "operator": {
+                "type": "number",
+                "operation": "lte"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-medium-severity",
+      "name": "Severity 4-6",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [690, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://thehive.thehive.svc.cluster.local:9000/api/v1/case",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"title\": \"Wazuh Alert: {{ $json.description }}\",\n  \"description\": \"Alert ID: {{ $json.alert_id }}\\nRule: {{ $json.rule_id }}\\nSeverity: {{ $json.severity }}\\nAgent: {{ $json.agent_name }} ({{ $json.agent_id }})\",\n  \"severity\": {{ $json.severity }},\n  \"tags\": [\"wazuh\", \"auto-created\", \"soc-alert\"],\n  \"source\": \"wazuh\",\n  \"sourceRef\": \"{{ $json.alert_id }}\"\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "http-thehive-create",
+      "name": "Create TheHive Case",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [910, 320]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://elasticsearch.elasticsearch.svc.cluster.local:9200/cobalto-alerts/_doc",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"alert_id\": \"{{ $json.alert_id }}\",\n  \"rule_id\": \"{{ $json.rule_id }}\",\n  \"severity\": {{ $json.severity }},\n  \"description\": \"{{ $json.description }}\",\n  \"agent_id\": \"{{ $json.agent_id }}\",\n  \"agent_name\": \"{{ $json.agent_name }}\",\n  \"timestamp\": \"{{ $json.timestamp }}\",\n  \"routed_to\": \"log_only\",\n  \"ingested_at\": \"{{ $now.toISO() }}\"\n}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "http-elasticsearch-log",
+      "name": "Log to Elasticsearch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [910, 480]
+    }
+  ],
+  "connections": {
+    "Wazuh Alert Webhook": {
+      "main": [
+        [
+          {
+            "node": "Parse Alert Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Alert Payload": {
+      "main": [
+        [
+          {
+            "node": "Severity >= 7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Severity >= 7": {
+      "main": [
+        [
+          {
+            "node": "LangGraph Agent Analyze",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Severity 4-6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Severity 4-6": {
+      "main": [
+        [
+          {
+            "node": "Create TheHive Case",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Log to Elasticsearch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "1",
+  "tags": [
+    {
+      "name": "cobalto-soc"
+    },
+    {
+      "name": "alert-routing"
+    }
+  ]
+}

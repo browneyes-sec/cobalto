@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../namespaces/soc-platform.yaml
+  - ../namespaces/network-policy-default-deny.yaml
+  - ../namespaces/network-policy-allow-dns.yaml
+  - rbac/rbac-kustomization.yaml
+  - secrets/external-secrets-template.yaml
+
+commonLabels:
+  app.kubernetes.io/part-of: cobalto
+  app.kubernetes.io/managed-by: kustomize
+
+namespace: soc-platform

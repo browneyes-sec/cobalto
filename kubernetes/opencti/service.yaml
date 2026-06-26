@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: opencti-platform
+  namespace: opencti
+  labels:
+    app.kubernetes.io/name: opencti-platform
+    app.kubernetes.io/part-of: opencti
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: opencti-platform
+  ports:
+    - name: http
+      port: 4000
+      targetPort: 4000
+      protocol: TCP

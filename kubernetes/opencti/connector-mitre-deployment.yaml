@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connector-mitre-attack
+  namespace: opencti
+  labels:
+    app.kubernetes.io/name: connector-mitre-attack
+    app.kubernetes.io/part-of: opencti
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: connector-mitre-attack
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: connector-mitre-attack
+    spec:
+      containers:
+        - name: connector-mitre-attack
+          image: opencti/connector-mitre-attack:6.0.0
+          env:
+            - name: OPENCTI_CONNECTOR_ID
+              value: "connector-mitre-attack"
+            - name: OPENCTI_CONNECTOR_TYPE
+              value: "external-import"
+            - name: OPENCTI_CONNECTOR_NAME
+              value: "MITRE"

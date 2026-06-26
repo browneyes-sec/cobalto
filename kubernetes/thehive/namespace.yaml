@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: thehive
+  labels:
+    name: thehive
+    app.kubernetes.io/name: thehive
+    app.kubernetes.io/part-of: siem
+    app.kubernetes.io/managed-by: kustomize

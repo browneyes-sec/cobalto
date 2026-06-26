@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: wazuh-indexer
+  namespace: wazuh
+  labels:
+    app.kubernetes.io/name: wazuh-indexer
+    app.kubernetes.io/part-of: wazuh
+spec:
+  serviceName: wazuh-indexer
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wazuh-indexer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wazuh-indexer
+    spec:
+      containers:
+        - name: wazuh-indexer
+          image: quay.io/wazuh/wazuh-indexer:4.8.0
+          ports:
+            - containerPort: 9200
+          volumeMounts:
+            - name: indexer-data
+              mountPath: /var/lib/wazuh-indexer
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "2"
+            limits:
+              memory: "4Gi"
+              cpu: "2"
+  volumeClaimTemplates:
+    - metadata:
+        name: indexer-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 30Gi

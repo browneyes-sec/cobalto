@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: thehive-config
+  namespace: thehive
+  labels:
+    app.kubernetes.io/name: thehive
+data:
+  application.conf: |
+    play.http.secret.key = ${PLAY_HTTP_SECRET}
+    play.http.secret.key = "changeme"
+    db.janusgraph {
+      storage.backend = "berkeleyje"
+      storage.directory = "/opt/thp/thehive/db/janusgraph"
+      storage.hostname = "127.0.0.1"
+      index.search.backend = "elasticsearch"
+      index.search.hostname = ["opensearch-cluster-cluster-data"]:9200
+      index.search.index-name = "thehive"
+    }
+    storage {
+      provider = "localfs"
+      localfs.location = "/opt/thp/thehive/data"
+    }
+    play.evolutions.db.config.driver = org.postgresql.Driver
+    play.evolutions.db.config.url = "jdbc:postgresql://rds-endpoint:5432/thehivedb"
+    play.evolutions.db.config.user = "thehive"
+    play.evolutions.db.config.password = "changeme"
+    play.modules.enabled += org.thp.thehive.connector.neo4j.Neo4jModule
+    db {
+      neo4j {
+        hosts = ["neo4j-service:7687"]
+        auth = "neo4j:changeme"
+      }
+    }

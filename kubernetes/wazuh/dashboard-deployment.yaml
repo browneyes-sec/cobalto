@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wazuh-dashboard
+  namespace: wazuh
+  labels:
+    app.kubernetes.io/name: wazuh-dashboard
+    app.kubernetes.io/part-of: wazuh
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: wazuh-dashboard
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: wazuh-dashboard
+    spec:
+      containers:
+        - name: wazuh-dashboard
+          image: quay.io/wazuh/wazuh-dashboard:4.8.0
+          ports:
+            - containerPort: 443
+          resources:
+            requests:
+              memory: "1Gi"
+            limits:
+              memory: "1Gi"

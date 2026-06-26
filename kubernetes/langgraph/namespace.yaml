@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: langgraph
+  labels:
+    app.kubernetes.io/name: langgraph
+    app.kubernetes.io/part-of: cobalto-soc
+    app.kubernetes.io/managed-by: kubectl
+    platform: cobalto
+    tier: ai-agents
