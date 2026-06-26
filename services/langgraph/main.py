@@ -152,6 +152,36 @@ class AgentResponse(BaseModel):
     duration_ms: float
 
 
+class WazuhAlert(BaseModel):
+    """Wazuh alert model."""
+    rule_id: Optional[str] = None
+    rule_level: Optional[int] = None
+    rule_description: Optional[str] = None
+    rule_groups: Optional[str] = None
+    rule_mitre: Optional[Dict[str, Any]] = None
+    agent_id: Optional[str] = None
+    agent_name: Optional[str] = None
+    srcip: Optional[str] = None
+    dstip: Optional[str] = None
+    srcport: Optional[int] = None
+    dstport: Optional[int] = None
+    protocol: Optional[str] = None
+    log: Optional[Dict[str, Any]] = None
+    data: Optional[Dict[str, Any]] = None
+    timestamp: Optional[str] = None
+    full_log: Optional[str] = None
+    location: Optional[str] = None
+
+
+class N8NWebhookPayload(BaseModel):
+    """N8N webhook payload wrapper."""
+    alert_id: str
+    alert: WazuhAlert
+    tenant_id: Optional[str] = None
+    source: str = "wazuh"
+    metadata: Optional[Dict[str, Any]] = None
+
+
 # Routes
 @app.get("/health")
 async def health():
@@ -350,6 +380,209 @@ async def generate_response(request: AnalyzeRequest):
     except Exception as e:
         logger.exception("generate_response_failed", alert_id=request.alert_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =============================================================================
+# Webhook Endpoints for Alert Ingestion
+# =============================================================================
+
+@app.post("/webhook/wazuh")
+async def wazuh_webhook(payload: N8NWebhookPayload):
+    """
+    Receive alerts from Wazuh via n8n webhook.
+    
+    Flow: Wazuh → n8n → Cobalt (this endpoint) → Supervisor → Silver Agents
+    
+    This endpoint normalizes the Wazuh alert and forwards it to the supervisor
+    for triage and automated response.
+    """
+    start_time = time.time()
+    
+    try:
+        alert_id = payload.alert_id
+        logger.info(
+            "wazuh_alert_received",
+            alert_id=alert_id,
+            rule_id=payload.alert.rule_id,
+            rule_level=payload.alert.rule_level,
+            agent_id=payload.alert.agent_id,
+            tenant_id=payload.tenant_id,
+        )
+        
+        # Normalize alert to common format
+        normalized_alert = {
+            "id": alert_id,
+            "source": "wazuh",
+            "timestamp": payload.alert.timestamp,
+            "rule": {
+                "id": payload.alert.rule_id,
+                "level": payload.alert.rule_level,
+                "description": payload.alert.rule_description,
+                "groups": payload.alert.rule_groups,
+                "mitre": payload.alert.rule_mitre,
+            },
+            "agent": {
+                "id": payload.alert.agent_id,
+                "name": payload.alert.agent_name,
+            },
+            "network": {
+                "src_ip": payload.alert.srcip,
+                "dst_ip": payload.alert.dstip,
+                "src_port": payload.alert.srcport,
+                "dst_port": payload.alert.dstport,
+                "protocol": payload.alert.protocol,
+            },
+            "raw": {
+                "log": payload.alert.log,
+                "data": payload.alert.data,
+                "full_log": payload.alert.full_log,
+                "location": payload.alert.location,
+            },
+        }
+        
+        # Build context
+        context = {
+            "tenant_id": payload.tenant_id or "default",
+            "source": payload.source,
+            "metadata": payload.metadata or {},
+        }
+        
+        # Run supervisor analysis
+        supervisor = app.state.supervisor
+        result = await supervisor.run({
+            "alert_id": alert_id,
+            "alert": normalized_alert,
+            "context": context,
+        })
+        
+        duration_ms = (time.time() - start_time) * 1000
+        
+        logger.info(
+            "wazuh_alert_processed",
+            alert_id=alert_id,
+            duration_ms=duration_ms,
+            status=result.output.get("status", "unknown"),
+        )
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "alert_id": alert_id,
+                "status": "processed",
+                "routing": result.output.get("routing", {}),
+                "duration_ms": duration_ms,
+            },
+        )
+        
+    except Exception as e:
+        logger.exception(
+            "wazuh_webhook_failed",
+            alert_id=payload.alert_id if payload else "unknown",
+            error=str(e),
+        )
+        return JSONResponse(
+            status_code=500,
+            content={
+                "alert_id": payload.alert_id if payload else "unknown",
+                "status": "error",
+                "error": str(e),
+            },
+        )
+
+
+@app.post("/webhook/generic")
+async def generic_webhook(request: Request):
+    """
+    Generic webhook receiver for other SIEM/EDR integrations.
+    
+    Accepts any JSON payload and routes through the supervisor.
+    """
+    start_time = time.time()
+    
+    try:
+        body = await request.json()
+        
+        # Extract or generate alert_id
+        alert_id = body.get("alert_id") or body.get("id") or f"generic-{uuid.uuid4().hex[:12]}"
+        
+        logger.info("generic_alert_received", alert_id=alert_id)
+        
+        # Run supervisor analysis
+        supervisor = app.state.supervisor
+        result = await supervisor.run({
+            "alert_id": alert_id,
+            "alert": body,
+            "context": {
+                "tenant_id": "default",
+                "source": "generic_webhook",
+            },
+        })
+        
+        duration_ms = (time.time() - start_time) * 1000
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "alert_id": alert_id,
+                "status": "processed",
+                "routing": result.output.get("routing", {}),
+                "duration_ms": duration_ms,
+            },
+        )
+        
+    except Exception as e:
+        logger.exception("generic_webhook_failed", error=str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "error": str(e)},
+        )
+
+
+@app.post("/webhook/n8n")
+async def n8n_callback(request: Request):
+    """
+    Callback endpoint for n8n workflows.
+    
+    n8n can call this endpoint to trigger agent actions or get results.
+    """
+    start_time = time.time()
+    
+    try:
+        body = await request.json()
+        action = body.get("action")
+        data = body.get("data", {})
+        
+        logger.info("n8n_callback_received", action=action)
+        
+        if action == "triage":
+            result = await app.state.supervisor.run({
+                "alert_id": data.get("alert_id", f"n8n-{uuid.uuid4().hex[:8]}"),
+                "alert": data.get("alert", {}),
+                "context": data.get("context", {}),
+            })
+        else:
+            return JSONResponse(
+                status_code=400,
+                content={"error": f"Unknown action: {action}"},
+            )
+        
+        duration_ms = (time.time() - start_time) * 1000
+        
+        return JSONResponse(
+            status_code=200,
+            content={
+                "status": "success",
+                "result": result.output,
+                "duration_ms": duration_ms,
+            },
+        )
+        
+    except Exception as e:
+        logger.exception("n8n_callback_failed", error=str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"status": "error", "error": str(e)},
+        )
 
 
 # =============================================================================
