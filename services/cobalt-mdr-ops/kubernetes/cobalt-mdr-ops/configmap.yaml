@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cobalt-mdr-slas
+  namespace: cobalto
+  labels:
+    app: cobalt-mdr-ops
+data:
+  slas.yaml: |
+    slas:
+      P1:
+        response_time_minutes: 15
+        containment_time_minutes: 60
+        resolution_time_minutes: 240
+      P2:
+        response_time_minutes: 60
+        containment_time_minutes: 240
+        resolution_time_minutes: 1440
+      P3:
+        response_time_minutes: 240
+        containment_time_minutes: 1440
+        resolution_time_minutes: 5760
+      P4:
+        response_time_minutes: 1440
+        containment_time_minutes: 5760
+        resolution_time_minutes: 14400
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cobalt-mdr-escalation
+  namespace: cobalto
+  labels:
+    app: cobalt-mdr-ops
+data:
+  escalation.yaml: |
+    escalation_rules:
+      - priority: P1
+        delay_minutes: 5
+        level: 1
+        notify_roles:
+          - soc_team_lead
+        auto_page: true
+      - priority: P1
+        delay_minutes: 15
+        level: 2
+        notify_roles:
+          - soc_manager
+          - ciso
+        auto_page: true
+      - priority: P2
+        delay_minutes: 30
+        level: 1
+        notify_roles:
+          - soc_team_lead
+        auto_page: false
+      - priority: P2
+        delay_minutes: 60
+        level: 2
+        notify_roles:
+          - soc_manager
+        auto_page: true
+      - priority: P3
+        delay_minutes: 120
+        level: 1
+        notify_roles:
+          - soc_team_lead
+        auto_page: false
+      - priority: P4
+        delay_minutes: 480
+        level: 1
+        notify_roles:
+          - soc_team_lead
+        auto_page: false

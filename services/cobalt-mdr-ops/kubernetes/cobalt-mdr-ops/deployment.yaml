@@ -1,0 +1,64 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cobalt-mdr-ops-report
+  namespace: cobalto
+  labels:
+    app: cobalt-mdr-ops
+    component: reporting
+spec:
+  schedule: "0 6 * * 1"
+  successfulJobsHistoryLimit: 5
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: cobalt-mdr-ops
+            component: reporting
+        spec:
+          containers:
+            - name: report-generator
+              image: cobalto/cobalt-mdr-ops:latest
+              command: ["python", "-m", "cobalt_mdr_ops.reporting", "--weekly"]
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: cobalt-secrets
+                      key: database-url
+                - name: SLACK_WEBHOOK_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: cobalt-secrets
+                      key: slack-webhook-url
+                - name: REPORT_OUTPUT_DIR
+                  value: "/reports"
+              volumeMounts:
+                - name: report-volume
+                  mountPath: /reports
+                - name: sla-config
+                  mountPath: /config/slas.yaml
+                  subPath: slas.yaml
+                - name: escalation-config
+                  mountPath: /config/escalation.yaml
+                  subPath: escalation.yaml
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+          volumes:
+            - name: report-volume
+              persistentVolumeClaim:
+                claimName: cobalt-reports-pvc
+            - name: sla-config
+              configMap:
+                name: cobalt-mdr-slas
+            - name: escalation-config
+              configMap:
+                name: cobalt-mdr-escalation
+          restartPolicy: OnFailure

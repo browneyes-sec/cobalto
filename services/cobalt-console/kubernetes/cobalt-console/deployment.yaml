@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cobalt-console
+  namespace: cobalto
+  labels:
+    app: cobalt-console
+    component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: cobalt-console
+  template:
+    metadata:
+      labels:
+        app: cobalt-console
+        component: frontend
+    spec:
+      containers:
+        - name: cobalt-console
+          image: cobalto/cobalt-console:latest
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          env:
+            - name: LANGGRAPH_API_URL
+              value: "http://langgraph-api:8000"
+            - name: THEHIVE_API_URL
+              value: "http://thehive:9000"
+            - name: N8N_API_URL
+              value: "http://n8n:5678"
+            - name: BACKEND_API_URL
+              value: "http://cobalt-backend:8080"

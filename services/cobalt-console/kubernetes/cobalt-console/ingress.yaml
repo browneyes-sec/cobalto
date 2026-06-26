@@ -1,0 +1,30 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cobalt-console
+  namespace: cobalto
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  labels:
+    app: cobalt-console
+    component: frontend
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - cobalto.example.com
+      secretName: cobalt-console-tls
+  rules:
+    - host: cobalto.example.com
+      http:
+        paths:
+          - path: /console(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: cobalt-console
+                port:
+                  number: 80
