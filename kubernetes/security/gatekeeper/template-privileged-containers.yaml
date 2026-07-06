@@ -1,0 +1,83 @@
+# Gatekeeper ConstraintTemplate: Privileged Containers
+# Prevents containers from running in privileged mode.
+# Also requires: readOnlyRootFilesystem, no privilege escalation, all capabilities dropped.
+#
+# Applies to: Pods (including those created by Deployments, StatefulSets, DaemonSets, Jobs)
+---
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8spspprivilegedcontainers
+  annotations:
+    description: >-
+      Requires containers to run with minimal privileges: no privileged escalation,
+      no privileged mode, read-only root filesystem, and all Linux capabilities dropped.
+    category: Security
+    severity: high
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sPSPPrivilegedContainers
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            allowedImages:
+              type: array
+              items:
+                type: string
+              description: >-
+                List of allowed image registries (prefix match).
+                If empty, all registries are allowed.
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8spspprivilegedcontainers
+
+        import future.keywords.in
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          container.securityContext.privileged == true
+          msg := sprintf("Container '%v' is privileged. Do not run containers in privileged mode.", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          sc := container.securityContext
+          not sc.allowPrivilegeEscalation == false
+          msg := sprintf("Container '%v' must set allowPrivilegeEscalation=false.", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          sc := container.securityContext
+          not sc.readOnlyRootFilesystem == true
+          msg := sprintf("Container '%v' must set readOnlyRootFilesystem=true.", [container.name])
+        }
+
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.containers[_]
+          sc := container.securityContext
+          caps := sc.capabilities
+          not caps.drop[_] == "ALL"
+          msg := sprintf("Container '%v' must drop all capabilities (capabilities.drop: ALL).", [container.name])
+        }
+
+        # Also check initContainers
+        violation[{"msg": msg}] {
+          container := input.review.object.spec.initContainers[_]
+          container.securityContext.privileged == true
+          msg := sprintf("Init container '%v' is privileged. Do not run containers in privileged mode.", [container.name])
+        }
+
+        # Check allowed images if specified
+        violation[{"msg": msg}] {
+          allowed := input.parameters.allowedImages
+          count(allowed) > 0
+          container := input.review.object.spec.containers[_]
+          image := container.image
+          not startswith(image, allowed[_])
+          msg := sprintf("Container '%v' uses image '%v' which is not in the allowed registries.", [container.name, image])
+        }

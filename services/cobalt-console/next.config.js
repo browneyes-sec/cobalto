@@ -3,6 +3,10 @@ const nextConfig = {
   async rewrites() {
     return [
       {
+        source: '/api/auth/:path*',
+        destination: `${process.env.CONSOLE_AUTH_URL || 'http://localhost:8001'}/auth/:path*`,
+      },
+      {
         source: '/api/langgraph/:path*',
         destination: `${process.env.LANGGRAPH_API_URL || 'http://localhost:8000'}/:path*`,
       },

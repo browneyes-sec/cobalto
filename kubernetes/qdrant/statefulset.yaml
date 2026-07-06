@@ -5,6 +5,7 @@ metadata:
   namespace: qdrant
   labels:
     app.kubernetes.io/name: qdrant
+    app.kubernetes.io/part-of: cobalto-soc
     app.kubernetes.io/version: "v1.9.0"
 spec:
   serviceName: qdrant
@@ -16,9 +17,21 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: qdrant
+        app.kubernetes.io/part-of: cobalto-soc
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: qdrant
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
           image: qdrant/qdrant:v1.9.0
           imagePullPolicy: IfNotPresent
           ports:

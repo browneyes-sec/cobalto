@@ -5,7 +5,7 @@ metadata:
   namespace: wazuh
   labels:
     app.kubernetes.io/name: wazuh-dashboard
-    app.kubernetes.io/part-of: wazuh
+    app.kubernetes.io/part-of: cobalto-soc
 spec:
   replicas: 1
   selector:
@@ -15,9 +15,21 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: wazuh-dashboard
+        app.kubernetes.io/part-of: cobalto-soc
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: wazuh-dashboard
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
           image: quay.io/wazuh/wazuh-dashboard:4.8.0
           ports:
             - containerPort: 443

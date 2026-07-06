@@ -1,0 +1,60 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: vault-network-policy
+  namespace: vault
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/part-of: cobalto-soc
+spec:
+  podSelector:
+    matchLabels:
+      app: vault
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow traffic from langgraph agent service
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app.kubernetes.io/part-of: cobalto-soc
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: langgraph-agent-service
+      ports:
+        - protocol: TCP
+          port: 8200
+    # Allow traffic from n8n workflows
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              app: n8n
+      ports:
+        - protocol: TCP
+          port: 8200
+    # Allow K8s API traffic for auth
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: TCP
+          port: 8200
+  egress:
+    # Allow DNS
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow K8s API
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: TCP
+          port: 443

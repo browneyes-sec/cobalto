@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: langgraph-agent-pdb
+  namespace: langgraph
+  labels:
+    app.kubernetes.io/name: langgraph-agent-service
+    app.kubernetes.io/part-of: cobalto-soc
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: langgraph-agent-service

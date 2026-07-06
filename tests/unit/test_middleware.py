@@ -128,52 +128,175 @@ class TestAuditLogger:
         entries = logger.get_entries()
         assert len(entries) == 2
 
-    def test_audit_logger_json_output(self, capsys):
+    def test_audit_logger_json_output(self):
+        """Audit entries should be valid JSON with expected fields."""
+        import json as json_lib
+        from middleware.audit import AuditJSONFormatter
+        import logging
+
         logger = AuditLogger(secret_key="json-test")
-        logger.log_action("json_agent", "json_action", {"data": 123})
-        captured = capsys.readouterr()
-        output = json.loads(captured.out.strip())
-        assert output["agent_id"] == "json_agent"
-        assert output["details"]["data"] == 123
+        entry = logger.log_action("json_agent", "json_action", {"data": 123})
+
+        # The in-memory entry should have all required fields
+        assert entry["agent_id"] == "json_agent"
+        assert entry["action"] == "json_action"
+        assert entry["details"] == {"data": 123}
+        assert "event_id" in entry
+        assert "timestamp" in entry
+        assert "hmac_signature" in entry
+
+        # Verify the HMAC signature is a valid hex string
+        assert len(entry["hmac_signature"]) == 64
+        int(entry["hmac_signature"], 16)  # should not raise
+
+        # Test AuditJSONFormatter produces valid JSON
+        record = logging.LogRecord(
+            name="cobalto.audit",
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=42,
+            msg="Audit test",
+            args=(),
+            exc_info=None,
+        )
+        record.audit_fields = entry
+        formatter = AuditJSONFormatter()
+        json_output = formatter.format(record)
+        parsed = json_lib.loads(json_output)
+        assert parsed["action"] == "json_action"
+        assert parsed["agent_id"] == "json_agent"
+        assert "message" in parsed
+        assert "logger" in parsed
+
+    def test_audit_logger_structured_fields(self, caplog):
+        """All audit fields should be present in the structured log output."""
+        import logging
+        caplog.set_level(logging.INFO, logger="cobalto.audit")
+
+        logger = AuditLogger(secret_key="structured-test")
+        entry = logger.log_alert_received("ALT-099", {"title": "Structured Test"})
+
+        # Verify the entry dict has all required fields
+        assert entry["event_id"] is not None
+        assert entry["timestamp"] > 0
+        assert entry["agent_id"] == "system"
+        assert entry["action"] == "alert_received"
+        assert entry["details"]["alert_id"] == "ALT-099"
+        assert len(entry["hmac_signature"]) == 64
+
+    def test_audit_logger_entries_by_agent_filter(self):
+        logger = AuditLogger(secret_key="filter-test")
+        logger.log_action("agent_a", "action_1")
+        logger.log_action("agent_b", "action_2")
+        logger.log_action("agent_a", "action_3")
+
+        agent_a_entries = logger.get_entries_by_agent("agent_a")
+        assert len(agent_a_entries) == 2
+
+        agent_b_entries = logger.get_entries_by_agent("agent_b")
+        assert len(agent_b_entries) == 1
+
+    def test_audit_logger_entries_by_action_filter(self):
+        logger = AuditLogger(secret_key="filter-test")
+        logger.log_action("agent", "start")
+        logger.log_action("agent", "complete")
+        logger.log_action("agent", "start")
+
+        start_entries = logger.get_entries_by_action("start")
+        assert len(start_entries) == 2
+
+    def test_audit_logger_entries_by_severity_filter(self):
+        logger = AuditLogger(secret_key="filter-test")
+        logger.log_action("agent", "info_action", severity="INFO")
+        logger.log_action("agent", "error_action", severity="ERROR")
+        logger.log_action("agent", "warn_action", severity="WARNING")
+
+        error_entries = logger.get_entries_by_severity("ERROR")
+        assert len(error_entries) == 1
+
+    def test_audit_logger_clear(self):
+        logger = AuditLogger(secret_key="clear-test")
+        logger.log_action("agent", "action_1")
+        logger.log_action("agent", "action_2")
+        assert logger.count == 2
+        logger.clear()
+        assert logger.count == 0
+        assert len(logger.get_entries()) == 0
 
 
 class TestInputValidator:
-    def test_input_validator_rejects_malformed(self):
+    """Tests against Wazuh-style AlertPayload schema matching state.AlertPayload."""
+
+    VALID_PAYLOAD = {
+        "alert_id": "WAZUH-3001",
+        "rule_id": 800300,
+        "rule_description": "SSH brute force attempt detected",
+        "alert_level": 3,
+        "source_ip": "10.0.0.50",
+        "dest_ip": "10.0.0.10",
+        "agent_name": "ssh-server-01",
+        "timestamp": "2026-06-25T10:30:00Z",
+        "raw_log": "sshd[9999]: Failed password for root from 10.0.0.50 port 22",
+    }
+
+    def test_input_validator_rejects_empty_dict(self):
         validator = InputValidator()
-        malformed = {"title": "Missing required fields"}
+        valid, error = validator.validate({})
+        assert valid is False
+        assert error is not None
+
+    def test_input_validator_accepts_valid_wazuh_payload(self):
+        validator = InputValidator()
+        valid, error = validator.validate(self.VALID_PAYLOAD)
+        assert valid is True, f"Valid payload rejected: {error}"
+        assert error is None
+
+    def test_input_validator_rejects_missing_required_fields(self):
+        validator = InputValidator()
+        malformed = {"alert_id": "ALT-001"}  # missing rule_id, alert_level, etc.
         valid, error = validator.validate(malformed)
         assert valid is False
         assert error is not None
-        assert "alert_id" in error or "severity" in error
-
-    def test_input_validator_accepts_valid(self):
-        validator = InputValidator()
-        valid_payload = {
-            "alert_id": "ALT-001",
-            "title": "Test Alert",
-            "severity": "high",
-            "source": "test-source",
-            "timestamp": "2026-01-01T00:00:00Z",
-        }
-        valid, error = validator.validate(valid_payload)
-        assert valid is True
-        assert error is None
 
     def test_input_validator_reject_malformed_raises(self):
         validator = InputValidator()
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Validation error"):
             validator.reject_malformed({"invalid": "payload"})
 
     def test_input_validator_reject_malformed_valid(self):
         validator = InputValidator()
-        result = validator.reject_malformed({
-            "alert_id": "ALT-002",
-            "title": "Valid",
-            "severity": "low",
-            "source": "siem",
-            "timestamp": "2026-01-01T00:00:00Z",
-        })
+        result = validator.reject_malformed(self.VALID_PAYLOAD)
         assert result is True
+
+    def test_input_validator_rejects_empty_alert_id(self):
+        validator = InputValidator()
+        payload = dict(self.VALID_PAYLOAD)
+        payload["alert_id"] = ""
+        valid, error = validator.validate(payload)
+        assert valid is False
+
+    def test_input_validator_rejects_zero_rule_id(self):
+        validator = InputValidator()
+        payload = dict(self.VALID_PAYLOAD)
+        payload["rule_id"] = 0
+        valid, error = validator.validate(payload)
+        assert valid is False
+
+    def test_input_validator_rejects_alert_level_out_of_range(self):
+        validator = InputValidator()
+        payload = dict(self.VALID_PAYLOAD)
+        payload["alert_level"] = 999
+        valid, error = validator.validate(payload)
+        assert valid is False
+
+    def test_input_validator_rejects_additional_properties(self):
+        """Schema smuggling attempt — extra fields should be rejected."""
+        validator = InputValidator()
+        payload = dict(self.VALID_PAYLOAD)
+        payload["injection"] = True
+        payload["__proto__"] = {"polluted": True}
+        valid, error = validator.validate(payload)
+        assert valid is False, "Schema smuggling payload bypassed validation!"
 
     def test_input_validator_validate_severity(self):
         validator = InputValidator()
@@ -197,30 +320,6 @@ class TestInputValidator:
         assert len(errors) >= 2
         assert any("missing 'value'" in e for e in errors)
         assert any("missing 'type'" in e for e in errors)
-
-    def test_input_validator_rejects_empty_alert_id(self):
-        validator = InputValidator()
-        payload = {
-            "alert_id": "",
-            "title": "Test",
-            "severity": "low",
-            "source": "test",
-            "timestamp": "2026-01-01T00:00:00Z",
-        }
-        valid, error = validator.validate(payload)
-        assert valid is False
-
-    def test_input_validator_rejects_invalid_severity(self):
-        validator = InputValidator()
-        payload = {
-            "alert_id": "ALT-003",
-            "title": "Test",
-            "severity": "extreme",
-            "source": "test",
-            "timestamp": "2026-01-01T00:00:00Z",
-        }
-        valid, error = validator.validate(payload)
-        assert valid is False
 
 
 class TestPromptInjectionGuard:

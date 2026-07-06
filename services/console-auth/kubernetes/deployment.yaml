@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: console-auth
+  namespace: cobalto
+  labels:
+    app: console-auth
+    component: auth
+    app.kubernetes.io/part-of: cobalto-soc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: console-auth
+  template:
+    metadata:
+      labels:
+        app: console-auth
+        component: auth
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: console-auth
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+          image: cobalto/console-auth:latest
+          ports:
+            - containerPort: 8001
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8001
+            initialDelaySeconds: 3
+            periodSeconds: 10
+          env:
+            - name: CONSOLE_AUTH_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: console-auth-secrets
+                  key: jwt_secret
+            - name: CONSOLE_AUTH_USERS
+              valueFrom:
+                secretKeyRef:
+                  name: console-auth-secrets
+                  key: users
+            - name: CONSOLE_AUTH_LOG_LEVEL
+              value: "INFO"
+            - name: CONSOLE_AUTH_RATE_LIMIT_PER_MINUTE
+              value: "5"

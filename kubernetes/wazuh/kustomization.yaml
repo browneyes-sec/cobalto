@@ -9,3 +9,4 @@ resources:
   - indexer-service.yaml
   - dashboard-service.yaml
   - configmap.yaml
+  - pdb.yaml

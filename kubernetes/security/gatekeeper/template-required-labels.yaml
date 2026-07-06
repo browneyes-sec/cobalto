@@ -1,0 +1,45 @@
+# Gatekeeper ConstraintTemplate: Required Labels
+# Ensures all resources have the required cobalto SOC labels.
+---
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8srequiredlabels
+  annotations:
+    description: >-
+      Requires all resources to have specific labels defined in the constraint.
+      Used to enforce consistency across cobalto SOC deployments.
+    category: Governance
+    severity: medium
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sRequiredLabels
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            labels:
+              type: array
+              items:
+                type: string
+              description: >-
+                List of required label keys.
+                Default: ["app.kubernetes.io/part-of", "app.kubernetes.io/managed-by"]
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8srequiredlabels
+
+        violation[{"msg": msg}] {
+          resource := input.review.object
+          provided := {label | resource.metadata.labels[label]}
+          required := {label | input.parameters.labels[_] == label}
+          missing := required - provided
+          count(missing) > 0
+          msg := sprintf(
+            "Resource '%v' in namespace '%v' is missing required labels: %v",
+            [resource.metadata.name, resource.metadata.namespace, missing]
+          )
+        }

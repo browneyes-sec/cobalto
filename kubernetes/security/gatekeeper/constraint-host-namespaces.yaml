@@ -1,0 +1,23 @@
+# Gatekeeper Constraint: Host Namespaces
+# Prevents hostPID, hostNetwork, hostIPC except in allowed namespaces.
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPHostNamespaces
+metadata:
+  name: cobalto-no-host-namespaces
+  labels:
+    app.kubernetes.io/name: cobalto-no-host-namespaces
+    app.kubernetes.io/part-of: cobalto-soc
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    excludedNamespaces:
+      - gatekeeper-system
+      - kube-system
+      - security
+  parameters:
+    allowedHostNamespaces:
+      - kube-system
+      - security

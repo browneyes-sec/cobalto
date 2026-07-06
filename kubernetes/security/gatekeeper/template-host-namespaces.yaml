@@ -1,0 +1,57 @@
+# Gatekeeper ConstraintTemplate: Host Namespaces
+# Prevents pods from sharing host namespaces (PID, Network, IPC).
+---
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: k8spsphostnamespaces
+  annotations:
+    description: >-
+      Prevents containers from sharing host namespaces: hostPID, hostNetwork, hostIPC.
+      Exceptions can be made via the `allowedHostNamespaces` parameter.
+    category: Security
+    severity: high
+spec:
+  crd:
+    spec:
+      names:
+        kind: K8sPSPHostNamespaces
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            allowedHostNamespaces:
+              type: array
+              items:
+                type: string
+              description: >-
+                List of namespaces where host namespace access is allowed.
+                e.g., ["kube-system", "security"]
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package k8spsphostnamespaces
+
+        violation[{"msg": msg}] {
+          ns := input.review.object.metadata.namespace
+          allowed := input.parameters.allowedHostNamespaces
+          not ns == allowed[_]
+          input.review.object.spec.hostPID == true
+          msg := sprintf("Namespace '%v' is not allowed to share host PID namespace.", [ns])
+        }
+
+        violation[{"msg": msg}] {
+          ns := input.review.object.metadata.namespace
+          allowed := input.parameters.allowedHostNamespaces
+          not ns == allowed[_]
+          input.review.object.spec.hostNetwork == true
+          msg := sprintf("Namespace '%v' is not allowed to share host network namespace.", [ns])
+        }
+
+        violation[{"msg": msg}] {
+          ns := input.review.object.metadata.namespace
+          allowed := input.parameters.allowedHostNamespaces
+          not ns == allowed[_]
+          input.review.object.spec.hostIPC == true
+          msg := sprintf("Namespace '%v' is not allowed to share host IPC namespace.", [ns])
+        }

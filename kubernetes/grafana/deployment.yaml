@@ -5,6 +5,7 @@ metadata:
   namespace: monitoring
   labels:
     app: grafana
+    app.kubernetes.io/part-of: cobalto-soc
 spec:
   replicas: 1
   selector:
@@ -14,9 +15,21 @@ spec:
     metadata:
       labels:
         app: grafana
+        app.kubernetes.io/part-of: cobalto-soc
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: grafana
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
           image: grafana/grafana:10.4.0
           ports:
             - containerPort: 3000

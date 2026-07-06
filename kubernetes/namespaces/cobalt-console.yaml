@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cobalt-console
+  labels:
+    name: cobalt-console
+    purpose: frontend
+    team: platform
+    pod-security.kubernetes.io/enforce: restricted

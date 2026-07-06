@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - template-privileged-containers.yaml
+  - template-host-namespaces.yaml
+  - template-required-labels.yaml
+  - constraint-privileged-containers.yaml
+  - constraint-host-namespaces.yaml
+  - constraint-required-labels.yaml
+
+namespace: gatekeeper-system

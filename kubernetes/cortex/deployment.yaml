@@ -5,6 +5,7 @@ metadata:
   namespace: cortex
   labels:
     app.kubernetes.io/name: cortex
+    app.kubernetes.io/part-of: cobalto-soc
     app.kubernetes.io/version: "3.1.8"
 spec:
   replicas: 1
@@ -15,9 +16,21 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: cortex
+        app.kubernetes.io/part-of: cobalto-soc
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: cortex
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
           image: thehiveproject/cortex:3.1.8
           imagePullPolicy: IfNotPresent
           ports:

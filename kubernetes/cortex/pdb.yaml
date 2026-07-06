@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cortex-pdb
+  namespace: cortex
+  labels:
+    app.kubernetes.io/name: cortex
+    app.kubernetes.io/part-of: cobalto-soc
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: cortex

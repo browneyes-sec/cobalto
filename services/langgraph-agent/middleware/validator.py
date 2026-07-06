@@ -2,30 +2,23 @@ from typing import Any
 
 from jsonschema import ValidationError, validate
 
+# Wazuh alert format schema — matches AlertPayload TypedDict from state module
+# Used by InputValidator to validate incoming alerts before agent processing
 ALERT_PAYLOAD_SCHEMA = {
     "type": "object",
-    "required": ["alert_id", "title", "severity", "source", "timestamp"],
+    "required": ["alert_id", "rule_id", "rule_description", "alert_level", "agent_name", "timestamp"],
     "properties": {
         "alert_id": {"type": "string", "minLength": 1},
-        "title": {"type": "string", "minLength": 1},
-        "severity": {"type": "string", "enum": ["critical", "high", "medium", "low", "info"]},
-        "source": {"type": "string", "minLength": 1},
+        "rule_id": {"type": "integer", "minimum": 100000, "maximum": 999999},
+        "rule_description": {"type": "string", "minLength": 1},
+        "alert_level": {"type": "integer", "minimum": 1, "maximum": 16},
+        "source_ip": {"type": "string", "format": "ipv4", "anyOf": [{"type": "string"}, {"type": "null"}]},
+        "dest_ip": {"type": "string", "format": "ipv4", "anyOf": [{"type": "string"}, {"type": "null"}]},
+        "agent_name": {"type": "string", "minLength": 1},
         "timestamp": {"type": "string"},
-        "description": {"type": "string"},
-        "indicators": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "type": {"type": "string"},
-                    "value": {"type": "string"},
-                },
-            },
-        },
-        "affected_assets": {"type": "array", "items": {"type": "string"}},
-        "metadata": {"type": "object"},
+        "raw_log": {"type": "string"},
     },
-    "additionalProperties": True,
+    "additionalProperties": False,
 }
 
 

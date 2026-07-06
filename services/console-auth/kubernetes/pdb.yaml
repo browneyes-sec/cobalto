@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: console-auth-pdb
+  namespace: cobalto
+  labels:
+    app: console-auth
+    component: auth
+    app.kubernetes.io/part-of: cobalto-soc
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: console-auth

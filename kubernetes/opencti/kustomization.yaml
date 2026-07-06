@@ -7,3 +7,4 @@ resources:
   - connector-mitre-deployment.yaml
   - service.yaml
   - configmap.yaml
+  - pdb.yaml

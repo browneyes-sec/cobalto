@@ -5,6 +5,7 @@ metadata:
   namespace: elasticsearch
   labels:
     app: opensearch
+    app.kubernetes.io/part-of: cobalto-soc
 spec:
   serviceName: opensearch
   replicas: 3
@@ -15,9 +16,21 @@ spec:
     metadata:
       labels:
         app: opensearch
+        app.kubernetes.io/part-of: cobalto-soc
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: opensearch
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
           image: opensearchproject/opensearch:2.11.0
           ports:
             - containerPort: 9200

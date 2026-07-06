@@ -6,6 +6,7 @@ metadata:
   labels:
     app: cobalt-mdr-ops
     component: reporting
+    app.kubernetes.io/part-of: cobalto-soc
 spec:
   schedule: "0 6 * * 1"
   successfulJobsHistoryLimit: 5
@@ -17,9 +18,21 @@ spec:
           labels:
             app: cobalt-mdr-ops
             component: reporting
+            app.kubernetes.io/part-of: cobalto-soc
         spec:
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           containers:
             - name: report-generator
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+                readOnlyRootFilesystem: false
+                runAsNonRoot: true
               image: cobalto/cobalt-mdr-ops:latest
               command: ["python", "-m", "cobalt_mdr_ops.reporting", "--weekly"]
               env:

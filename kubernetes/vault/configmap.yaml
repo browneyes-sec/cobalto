@@ -5,6 +5,8 @@ metadata:
   namespace: vault
   labels:
     app: vault
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/part-of: cobalto-soc
 data:
   vault-config.hcl: |
     storage "file" {
@@ -12,11 +14,20 @@ data:
     }
 
     listener "tcp" {
-      address     = "0.0.0.0:8200"
-      tls_disable = 1
+      address       = "0.0.0.0:8200"
+      tls_disable   = 1
+      tls_cert_file = "/vault/tls/server.crt"
+      tls_key_file  = "/vault/tls/server.key"
     }
 
-    api_addr = "http://vault-0.vault.vault.svc:8200"
-    cluster_addr = "https://vault-0.vault.vault.svc:8201"
+    api_addr      = "http://vault-0.vault.vault.svc:8200"
+    cluster_addr  = "https://vault-0.vault.vault.svc:8201"
 
     ui = true
+
+    # Seal configuration for auto-unseal using Kubernetes service account
+    seal "kubernetes" {
+      namespace        = "vault"
+      service_account  = "vault-auth"
+      token_reviewer_service_account = "vault-auth"
+    }

@@ -1,0 +1,65 @@
+# Cobalto E2E — Kind Cluster Configuration
+#
+# A minimal K8s cluster for running end-to-end tests locally.
+# Uses a single control-plane node (no workers) to minimize resource usage.
+#
+# Prerequisites:
+#   - kind (https://kind.sigs.k8s.io)
+#   - Docker
+#   - kubectl
+#   - Helm (for External Secrets Operator)
+#
+# Usage:
+#   kind create cluster --config tests/e2e/kind/cluster.yaml --name cobalto-e2e
+#   ./scripts/e2e-deploy.sh
+#   pytest tests/e2e/ -v
+
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: cobalto-e2e
+
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      # Console (nginx → port 80 on host)
+      - containerPort: 80
+        hostPort: 8080
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+      # LangGraph Agent API
+      - containerPort: 8000
+        hostPort: 8000
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+      # Console Auth
+      - containerPort: 8001
+        hostPort: 8001
+        listenAddress: "127.0.0.1"
+        protocol: TCP
+
+# Limited resources for local testing
+kubeadmConfigPatches:
+  - |
+    apiVersion: kubeadm.k8s.io/v1beta3
+    kind: ClusterConfiguration
+    metadata:
+      name: config
+    apiServer:
+      extraArgs:
+        max-requests-inflight: "100"
+    controllerManager:
+      extraArgs:
+        node-monitor-grace-period: "10s"
+        node-monitor-period: "3s"
+---
+# Cobalto Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cobalto
+---
+# Cobalto Namespace (for services that need isolation)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: langgraph

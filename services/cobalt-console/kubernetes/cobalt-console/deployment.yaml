@@ -6,6 +6,7 @@ metadata:
   labels:
     app: cobalt-console
     component: frontend
+    app.kubernetes.io/part-of: cobalto-soc
 spec:
   replicas: 2
   selector:
@@ -16,9 +17,21 @@ spec:
       labels:
         app: cobalt-console
         component: frontend
+        app.kubernetes.io/part-of: cobalto-soc
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: cobalt-console
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
           image: cobalto/cobalt-console:latest
           ports:
             - containerPort: 80

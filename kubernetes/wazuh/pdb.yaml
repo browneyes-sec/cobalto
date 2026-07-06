@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: wazuh-manager-pdb
+  namespace: wazuh
+  labels:
+    app.kubernetes.io/name: wazuh-manager
+    app.kubernetes.io/part-of: cobalto-soc
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: wazuh-manager

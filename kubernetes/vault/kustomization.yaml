@@ -7,5 +7,12 @@ resources:
   - namespace.yaml
   - persistentvolumeclaim.yaml
   - configmap.yaml
+  - auth-rbac.yaml
   - statefulset.yaml
+  - networkpolicy.yaml
+  - pdb.yaml
   - service.yaml
+
+commonLabels:
+  app.kubernetes.io/name: vault
+  app.kubernetes.io/part-of: cobalto-soc

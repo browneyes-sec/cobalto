@@ -5,6 +5,7 @@ from state import SOCAgentState, AlertPayload
 
 class TestAlertPayload:
     def test_valid_alert_payload(self):
+        """AlertPayload TypedDict should accept all required fields."""
         alert = AlertPayload(
             alert_id="WAZUH-1001",
             rule_id=800100,
@@ -16,11 +17,13 @@ class TestAlertPayload:
             timestamp="2026-06-25T10:30:00Z",
             raw_log="sshd[12345]: Failed password for root from 10.0.0.50 port 22 ssh2",
         )
-        assert alert.alert_id == "WAZUH-1001"
-        assert alert.alert_level == 3
-        assert alert.source_ip == "10.0.0.50"
+        # TypedDict uses bracket notation for access
+        assert alert["alert_id"] == "WAZUH-1001"
+        assert alert["alert_level"] == 3
+        assert alert["source_ip"] == "10.0.0.50"
 
     def test_minimal_alert_payload(self):
+        """AlertPayload should accept None for optional IP fields."""
         alert = AlertPayload(
             alert_id="TEST-001",
             rule_id=100,
@@ -32,9 +35,9 @@ class TestAlertPayload:
             timestamp="2026-06-25T00:00:00Z",
             raw_log="",
         )
-        assert alert.alert_id == "TEST-001"
-        assert alert.source_ip is None
-        assert alert.dest_ip is None
+        assert alert["alert_id"] == "TEST-001"
+        assert alert["source_ip"] is None
+        assert alert["dest_ip"] is None
 
 
 class TestSOCAgentState:

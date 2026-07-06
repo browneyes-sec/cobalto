@@ -5,7 +5,7 @@ metadata:
   namespace: opencti
   labels:
     app.kubernetes.io/name: opencti-platform
-    app.kubernetes.io/part-of: opencti
+    app.kubernetes.io/part-of: cobalto-soc
 spec:
   replicas: 1
   selector:
@@ -15,9 +15,21 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: opencti-platform
+        app.kubernetes.io/part-of: cobalto-soc
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: opencti-platform
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
           image: opencti/platform:6.0.0
           ports:
             - containerPort: 4000

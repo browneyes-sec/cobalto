@@ -5,6 +5,8 @@ metadata:
   namespace: vault
   labels:
     app: vault
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/part-of: cobalto-soc
 spec:
   serviceName: vault
   replicas: 1
@@ -15,47 +17,188 @@ spec:
     metadata:
       labels:
         app: vault
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8200"
     spec:
+      serviceAccountName: vault-auth
+      automountServiceAccountToken: true  # Vault needs this for seal integration
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 100
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: vault
           image: hashicorp/vault:1.15.4
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8200
               name: http
+              protocol: TCP
+            - containerPort: 8201
+              name: cluster
+              protocol: TCP
           env:
+            - name: VAULT_ADDR
+              value: "http://127.0.0.1:8200"
+            - name: VAULT_CLUSTER_ADDR
+              value: "https://vault-0.vault.vault.svc:8201"
             - name: VAULT_API_ADDR
               value: "http://vault-0.vault.vault.svc:8200"
-            - name: VAULT_DEV_ROOT_TOKEN_ID
-              value: "root-token"
+            - name: SKIP_CHOWN
+              value: "true"
+            - name: VAULT_LOG_LEVEL
+              value: "info"
           resources:
             requests:
-              memory: 512Mi
-              cpu: 250m
+              memory: "256Mi"
+              cpu: "100m"
             limits:
-              memory: 512Mi
-              cpu: 500m
+              memory: "512Mi"
+              cpu: "500m"
           volumeMounts:
             - name: vault-data
               mountPath: /vault/data
             - name: vault-config
               mountPath: /vault/config
+            - name: vault-tls
+              mountPath: /vault/tls
+              readOnly: true
           securityContext:
             capabilities:
               add:
                 - IPC_LOCK
+              drop:
+                - ALL
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           readinessProbe:
             httpGet:
-              path: /v1/sys/health
+              path: /v1/sys/health?standbyok=true
               port: 8200
             initialDelaySeconds: 10
             periodSeconds: 10
+            failureThreshold: 6
           livenessProbe:
             httpGet:
-              path: /v1/sys/health
+              path: /v1/sys/health?standbyok=true
               port: 8200
             initialDelaySeconds: 30
             periodSeconds: 30
+          startupProbe:
+            httpGet:
+              path: /v1/sys/health?standbyok=true
+              port: 8200
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
+      # Init container to auto-unseal Vault on restart
+      initContainers:
+        - name: vault-init
+          image: hashicorp/vault:1.15.4
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: VAULT_ADDR
+              value: "http://127.0.0.1:8200"
+            - name: VAULT_UNSEAL_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vault-unseal-keys
+                  key: unseal_key_base64
+                  optional: true
+          command:
+            - sh
+            - -c
+            - |
+              set -euo pipefail
+              echo "Waiting for Vault to start..."
+              for i in $(seq 1 30); do
+                if wget -q -O- http://127.0.0.1:8200/v1/sys/health 2>/dev/null; then
+                  break
+                fi
+                sleep 2
+              done
+
+              # Check if already initialized
+              INIT_STATUS=$(vault status -format=json 2>/dev/null || echo '{"initialized":false}')
+              INITIALIZED=$(echo "$INIT_STATUS" | grep -c '"initialized":true' || true)
+
+              if [ "$INITIALIZED" = "0" ]; then
+                echo "Vault not initialized. Initializing..."
+                INIT_OUTPUT=$(vault operator init -format=json -key-shares=5 -key-threshold=3)
+                echo "$INIT_OUTPUT" > /tmp/vault-init.json
+
+                # Store unseal keys in Kubernetes secret
+                UNSEAL_KEY_1=$(echo "$INIT_OUTPUT" | jq -r '.unseal_keys_b64[0]')
+                UNSEAL_KEY_2=$(echo "$INIT_OUTPUT" | jq -r '.unseal_keys_b64[1]')
+                UNSEAL_KEY_3=$(echo "$INIT_OUTPUT" | jq -r '.unseal_keys_b64[2]')
+                ROOT_TOKEN=$(echo "$INIT_OUTPUT" | jq -r '.root_token')
+
+                kubectl create secret generic vault-unseal-keys \
+                  --namespace=vault \
+                  --from-literal=unseal_key_base64="$UNSEAL_KEY_1" \
+                  --from-literal=unseal_key_2="$UNSEAL_KEY_2" \
+                  --from-literal=unseal_key_3="$UNSEAL_KEY_3" \
+                  --from-literal=root_token="$ROOT_TOKEN" \
+                  --dry-run=client -o yaml | kubectl apply -f -
+
+                echo "Unsealing Vault for first time..."
+                vault operator unseal "$UNSEAL_KEY_1"
+                vault operator unseal "$UNSEAL_KEY_2"
+                vault operator unseal "$UNSEAL_KEY_3"
+
+                # Enable K8s auth
+                vault login "$ROOT_TOKEN"
+                vault auth enable kubernetes
+                vault write auth/kubernetes/config \
+                  kubernetes_host="https://kubernetes.default.svc:443" \
+                  token_reviewer_jwt="$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" \
+                  kubernetes_ca_cert="$(cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)"
+                vault policy write admin - <<< 'path "*" { capabilities = ["create", "read", "update", "delete", "list", "sudo"] }'
+
+                echo "Vault initialization complete."
+              else
+                echo "Vault already initialized. Unsealing..."
+                # Read unseal keys from secret and unseal
+                UNSEAL_KEY=$(echo "$VAULT_UNSEAL_KEY")
+                if [ -n "$UNSEAL_KEY" ]; then
+                  vault operator unseal "$UNSEAL_KEY"
+                fi
+
+                # Check if still sealed and try additional keys
+                SEALED=$(vault status -format=json | grep '"sealed":true' || true)
+                if [ -n "$SEALED" ]; then
+                  for key_num in 2 3; do
+                    KEY_VAR="VAULT_UNSEAL_KEY_${key_num}"
+                    KEY_VALUE=$(eval echo \$$KEY_VAR)
+                    if [ -n "$KEY_VALUE" ]; then
+                      vault operator unseal "$KEY_VALUE"
+                    fi
+                  done
+                fi
+              fi
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 100
+            allowPrivilegeEscalation: false
       volumes:
         - name: vault-config
           configMap:
             name: vault-config
+        - name: vault-tls
+          emptyDir:
+            medium: Memory
+  volumeClaimTemplates:
+    - metadata:
+        name: vault-data
+        labels:
+          app: vault
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi

@@ -5,6 +5,7 @@ metadata:
   namespace: n8n
   labels:
     app.kubernetes.io/name: n8n
+    app.kubernetes.io/part-of: cobalto-soc
     app.kubernetes.io/version: "latest"
 spec:
   replicas: 1
@@ -15,9 +16,21 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: n8n
+        app.kubernetes.io/part-of: cobalto-soc
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: n8n
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
           image: n8nio/n8n:latest
           imagePullPolicy: Always
           ports:

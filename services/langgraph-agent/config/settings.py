@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     HUMAN_APPROVAL_TIMEOUT_SECONDS: int = Field(default=300, description="Approval timeout")
     LOG_LEVEL: str = Field(default="INFO", description="Logging level")
     HMAC_SECRET: str = Field(default="change-me-in-production", description="HMAC signing secret")
+    COBALTO_API_KEY: str = Field(default="", description="API key for endpoint authentication")
+    COBALTO_API_KEYS: str = Field(default="", description="Comma-separated list of valid API keys")
+    COBALTO_DISABLE_AUTH: bool = Field(default=False, description="Disable API authentication (dev only)")
 
     model_config = {"env_prefix": "", "case_sensitive": True}
 

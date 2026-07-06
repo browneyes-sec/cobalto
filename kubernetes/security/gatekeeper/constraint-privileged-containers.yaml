@@ -1,0 +1,38 @@
+# Gatekeeper Constraint: Privileged Containers
+# Enforces:
+#   - No privileged containers
+#   - allowPrivilegeEscalation=false
+#   - readOnlyRootFilesystem=true
+#   - capabilities.drop: ALL
+#   - Allowed images from cobalto registry
+#
+# Applies to all namespaces except gatekeeper-system.
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sPSPPrivilegedContainers
+metadata:
+  name: cobalto-no-privileged-containers
+  labels:
+    app.kubernetes.io/name: cobalto-no-privileged-containers
+    app.kubernetes.io/part-of: cobalto-soc
+spec:
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    excludedNamespaces:
+      - gatekeeper-system
+      - kube-system
+      - local-path-storage
+  parameters:
+    allowedImages:
+      - "cobalto/"
+      - "nginx"
+      - "python"
+      - "node"
+      - "alpine"
+      - "busybox"
+      - "postgres"
+      - "redis"
+      - "rabbitmq"
+      - "aquasec/"

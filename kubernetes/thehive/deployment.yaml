@@ -5,6 +5,7 @@ metadata:
   namespace: thehive
   labels:
     app.kubernetes.io/name: thehive
+    app.kubernetes.io/part-of: cobalto-soc
     app.kubernetes.io/version: "5.2.1"
 spec:
   replicas: 1
@@ -15,9 +16,21 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: thehive
+        app.kubernetes.io/part-of: cobalto-soc
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: thehive
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
           image: thehiveproject/thehive:5.2.1
           imagePullPolicy: IfNotPresent
           ports:

@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: vault-auth
+  namespace: vault
+  labels:
+    app: vault
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/part-of: cobalto-soc
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vault-auth-binding
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/part-of: cobalto-soc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vault-auth-role
+subjects:
+  - kind: ServiceAccount
+    name: vault-auth
+    namespace: vault
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vault-auth-role
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/part-of: cobalto-soc
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - serviceaccounts
+      - serviceaccounts/token
+    verbs:
+      - create
+      - get
+      - list
+      - update
+      - delete
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - create
+      - get
+      - list
+      - update
+      - patch
+      - delete
+  - apiGroups:
+      - "authentication.k8s.io"
+    resources:
+      - tokenreviews
+    verbs:
+      - create
+  - apiGroups:
+      - "certificates.k8s.io"
+    resources:
+      - certificatesigningrequests
+    verbs:
+      - create
+      - get
+      - list
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+    verbs:
+      - get
+      - list
+---
+# Allow Vault to use the TokenReview API for K8s auth
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: vault-tokenreview-binding
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/part-of: cobalto-soc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: vault-tokenreview-role
+subjects:
+  - kind: ServiceAccount
+    name: vault-auth
+    namespace: vault
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: vault-tokenreview-role
+  labels:
+    app.kubernetes.io/name: vault
+    app.kubernetes.io/part-of: cobalto-soc
+rules:
+  - apiGroups:
+      - "authentication.k8s.io"
+    resources:
+      - tokenreviews
+    verbs:
+      - create

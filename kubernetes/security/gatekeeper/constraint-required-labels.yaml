@@ -1,0 +1,23 @@
+# Gatekeeper Constraint: Required Labels
+# Ensures all cobalto SOC resources have the required metadata labels.
+---
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: K8sRequiredLabels
+metadata:
+  name: cobalto-required-labels
+  labels:
+    app.kubernetes.io/name: cobalto-required-labels
+    app.kubernetes.io/part-of: cobalto-soc
+spec:
+  match:
+    kinds:
+      - apiGroups: ["apps", ""]
+        kinds: ["Deployment", "StatefulSet", "DaemonSet", "Service", "ConfigMap", "Secret"]
+    excludedNamespaces:
+      - gatekeeper-system
+      - kube-system
+      - local-path-storage
+  parameters:
+    labels:
+      - "app.kubernetes.io/part-of"
+      - "app.kubernetes.io/managed-by"
