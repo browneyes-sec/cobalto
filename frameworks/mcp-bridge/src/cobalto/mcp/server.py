@@ -4,7 +4,7 @@ MCP Server - Core server implementation handling JSON-RPC protocol.
 
 import json
 import logging
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING, Union
 
 from cobalto.mcp.protocol import (
     JSONRPCMessage,
@@ -31,6 +31,9 @@ from cobalto.mcp.registry.tools import ToolRegistry, get_tool_registry
 from cobalto.mcp.registry.resources import ResourceRegistry, get_resource_registry
 from cobalto.mcp.registry.prompts import PromptRegistry, get_prompt_registry
 
+if TYPE_CHECKING:
+    from cobalto.agent.tool_registry import UnifiedToolRegistry
+
 logger = logging.getLogger(__name__)
 
 
@@ -51,14 +54,27 @@ class MCPServer:
         name: str = "cobalto-mcp-server",
         version: str = "0.1.0",
         tool_registry: Optional[ToolRegistry] = None,
+        unified_tool_registry: Optional["UnifiedToolRegistry"] = None,
         resource_registry: Optional[ResourceRegistry] = None,
         prompt_registry: Optional[PromptRegistry] = None,
     ):
         self.name = name
         self.version = version
-        self.tool_registry = tool_registry or get_tool_registry()
         self.resource_registry = resource_registry or get_resource_registry()
         self.prompt_registry = prompt_registry or get_prompt_registry()
+
+        # Tool registry: prefer legacy ToolRegistry for backward compat,
+        # then UnifiedToolRegistry (wrapped via adapter), then default.
+        if tool_registry is not None:
+            self.tool_registry = tool_registry
+            self._unified_adapter = None
+        elif unified_tool_registry is not None:
+            from cobalto.mcp.registry.unified_adapter import UnifiedMCPAdapter
+            self._unified_adapter = UnifiedMCPAdapter(unified_tool_registry)
+            self.tool_registry = self._unified_adapter
+        else:
+            self.tool_registry = get_tool_registry()
+            self._unified_adapter = None
 
         # State
         self._initialized = False

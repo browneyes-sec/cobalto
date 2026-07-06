@@ -9,10 +9,10 @@ OSCAR Phase: Collect + Analyze - gather evidence, interpret patterns
 
 from typing import Any, Dict, List, Optional
 from cobalto.agent.base_agent import BaseAgent, AgentConfig, AgentType, AgentStatus, AgentResult
+from cobalto.agent.registry import AgentCapability
 from cobalto.agent.state import AlertState, Severity, InvestigationState
 from cobalto.agent.prompts import ANALYSIS_SYSTEM_PROMPT
 from cobalto.agent.analysis_tools import opencti_query, misp_correlate, es_query
-from cobalto.context.context_package import build_context
 from cobalto.core.logging import get_logger
 from cobalto.core.metrics import record_agent_execution
 import time
@@ -33,7 +33,11 @@ class SilverAnalysisAgent(BaseAgent):
     - MITRE ATT&CK technique mapping
     """
 
-    def __init__(self, config: Optional[AgentConfig] = None):
+    def __init__(
+        self,
+        config: Optional[AgentConfig] = None,
+        context_builder: Optional[Any] = None,
+    ):
         if config is None:
             config = AgentConfig(
                 name="Silver Analysis Agent",
@@ -43,7 +47,7 @@ class SilverAnalysisAgent(BaseAgent):
                 temperature=0.1,
                 tools=["opencti_query", "misp_correlate", "es_query"],
             )
-        super().__init__(config)
+        super().__init__(config, context_builder=context_builder)
 
     def get_system_prompt(self) -> str:
         """Get the system prompt for analysis agent."""
@@ -52,6 +56,20 @@ class SilverAnalysisAgent(BaseAgent):
     def get_tools(self) -> List[Dict[str, Any]]:
         """Get available tools."""
         return [opencti_query, misp_correlate, es_query]
+
+    def get_capabilities(self) -> List[AgentCapability]:
+        """Return capabilities for registry-based routing."""
+        return [
+            AgentCapability.DEEP_ANALYSIS,
+            AgentCapability.ATTACK_NARRATIVE,
+            AgentCapability.MITRE_MAPPING,
+            AgentCapability.RISK_ASSESSMENT,
+            AgentCapability.LOG_CORRELATION,
+        ]
+
+    def get_required_approval(self) -> List[str]:
+        """Analysis requires no human approval."""
+        return []
 
     async def run(self, input_data: Dict[str, Any]) -> AgentResult:
         """Execute analysis logic with 5-layer context."""
@@ -70,8 +88,8 @@ class SilverAnalysisAgent(BaseAgent):
                 tenant_id=tenant_id,
             )
 
-            # Build 5-layer context package
-            context_package = await build_context(
+            # Build 5-layer context package (injected or default)
+            context_package = await self.build_context(
                 incident_id=incident_id,
                 agent_type="analysis",
                 tenant_id=tenant_id,

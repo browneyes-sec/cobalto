@@ -86,13 +86,21 @@ class AuditService:
     def __init__(
         self,
         redis_url: str = "redis://localhost:6379",
-        hmac_secret: str = "audit-secret-change-in-production",
+        hmac_secret: Optional[str] = None,
         s3_bucket: Optional[str] = None,
         s3_prefix: str = "audit-logs",
         enable_s3: bool = False,
     ):
         self.redis_url = redis_url
-        self.hmac_secret = hmac_secret
+        # Load from Settings if not provided
+        from cobalto.core.config import get_settings
+        settings = get_settings()
+        if hmac_secret is None:
+            self.hmac_secret = settings.audit_hmac_secret
+            if not self.hmac_secret:
+                raise ValueError("AUDIT_HMAC_SECRET environment variable is required")
+        else:
+            self.hmac_secret = hmac_secret
         self.s3_bucket = s3_bucket
         self.s3_prefix = s3_prefix
         self.enable_s3 = enable_s3

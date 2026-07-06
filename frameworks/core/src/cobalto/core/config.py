@@ -141,6 +141,23 @@ class Settings(BaseSettings):
     # Shodan
     shodan_api_key: Optional[str] = Field(default=None, validation_alias="SHODAN_API_KEY")
 
+    # MISP
+    misp_url: str = Field(
+        default="http://localhost:8080",
+        validation_alias="MISP_URL"
+    )
+    misp_auth_key: Optional[str] = Field(default=None, validation_alias="MISP_AUTH_KEY")
+
+    # CORS
+    allowed_origins: List[str] = Field(
+        default=["http://localhost:3000"],
+        validation_alias="ALLOWED_ORIGINS"
+    )
+
+    # Security: HMAC Secrets (required, no defaults)
+    approval_hmac_secret: Optional[str] = Field(default=None, validation_alias="APPROVAL_HMAC_SECRET")
+    audit_hmac_secret: Optional[str] = Field(default=None, validation_alias="AUDIT_HMAC_SECRET")
+
     # MaxMind
     maxmind_account_id: Optional[str] = Field(default=None, validation_alias="MAXMIND_ACCOUNT_ID")
     maxmind_license_key: Optional[str] = Field(default=None, validation_alias="MAXMIND_LICENSE_KEY")
@@ -230,6 +247,22 @@ class Settings(BaseSettings):
         if v.lower() not in valid:
             raise ValueError(f"app_env must be one of {valid}")
         return v.lower()
+
+    @field_validator("allowed_origins", mode="before")
+    @classmethod
+    def parse_allowed_origins(cls, v: object) -> List[str]:
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            import json
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+            return [s.strip() for s in v.split(",") if s.strip()]
+        return v
 
     @property
     def is_development(self) -> bool:

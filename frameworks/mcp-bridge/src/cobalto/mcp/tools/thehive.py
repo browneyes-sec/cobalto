@@ -1,9 +1,24 @@
 """
 TheHive MCP Tools - Tools for interacting with TheHive SOAR platform.
+All requests use the pooled HTTP client with circuit breaker.
 """
 
 from typing import Any, Dict, List, Optional
 from cobalto.mcp.registry.tools import mcp_tool
+from cobalto.mcp.transport.pool import execute_request
+
+
+async def _thehive_request(method: str, path: str, **kwargs) -> Any:
+    from cobalto.core.config import get_settings
+    settings = get_settings()
+    return await execute_request(
+        name="thehive",
+        base_url=settings.thehive_url,
+        method=method,
+        path=path,
+        headers={"Authorization": f"Bearer {settings.thehive_token}"},
+        **kwargs,
+    )
 
 
 @mcp_tool(
@@ -29,12 +44,6 @@ async def thehive_create_case(
     tags: Optional[List[str]] = None,
     tlp: int = 2,
 ) -> Dict[str, Any]:
-    """Create a case in TheHive."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     payload = {
         "title": title,
         "description": description or "",
@@ -42,15 +51,7 @@ async def thehive_create_case(
         "tags": tags or [],
         "tlp": tlp,
     }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{settings.thehive_url}/case",
-            json=payload,
-            headers={"Authorization": f"Bearer {settings.thehive_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _thehive_request("POST", "/case", json=payload)
 
 
 @mcp_tool(
@@ -72,26 +73,12 @@ async def thehive_get_cases(
     severity: Optional[int] = None,
     limit: int = 50,
 ) -> Dict[str, Any]:
-    """Get cases from TheHive."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     params: Dict[str, Any] = {"limit": limit}
     if status:
         params["status"] = status
     if severity:
         params["severity"] = severity
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{settings.thehive_url}/case",
-            params=params,
-            headers={"Authorization": f"Bearer {settings.thehive_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _thehive_request("GET", "/case", params=params)
 
 
 @mcp_tool(
@@ -107,19 +94,7 @@ async def thehive_get_cases(
     tags=["thehive", "cases"],
 )
 async def thehive_get_case(case_id: str) -> Dict[str, Any]:
-    """Get a case from TheHive."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{settings.thehive_url}/case/{case_id}",
-            headers={"Authorization": f"Bearer {settings.thehive_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _thehive_request("GET", f"/case/{case_id}")
 
 
 @mcp_tool(
@@ -147,12 +122,6 @@ async def thehive_add_observable(
     tags: Optional[List[str]] = None,
     message: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Add observable to TheHive case."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     payload = {
         "data": data,
         "dataType": data_type,
@@ -160,15 +129,7 @@ async def thehive_add_observable(
         "tags": tags or [],
         "message": message or "",
     }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{settings.thehive_url}/case/{case_id}/observable",
-            json=payload,
-            headers={"Authorization": f"Bearer {settings.thehive_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _thehive_request("POST", f"/case/{case_id}/observable", json=payload)
 
 
 @mcp_tool(
@@ -194,28 +155,10 @@ async def thehive_add_task(
     status: str = "waiting",
     assignee: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Add task to TheHive case."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
-    payload = {
-        "title": title,
-        "description": description or "",
-        "status": status,
-    }
+    payload = {"title": title, "description": description or "", "status": status}
     if assignee:
         payload["assignee"] = assignee
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{settings.thehive_url}/case/{case_id}/task",
-            json=payload,
-            headers={"Authorization": f"Bearer {settings.thehive_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _thehive_request("POST", f"/case/{case_id}/task", json=payload)
 
 
 @mcp_tool(
@@ -232,20 +175,7 @@ async def thehive_add_task(
     tags=["thehive", "comments"],
 )
 async def thehive_add_comment(case_id: str, message: str) -> Dict[str, Any]:
-    """Add comment to TheHive case."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{settings.thehive_url}/case/{case_id}/comment",
-            json={"message": message},
-            headers={"Authorization": f"Bearer {settings.thehive_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _thehive_request("POST", f"/case/{case_id}/comment", json={"message": message})
 
 
 @mcp_tool(
@@ -268,25 +198,10 @@ async def thehive_close_case(
     resolution_status: Optional[str] = None,
     summary: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Close a TheHive case."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
-    payload: Dict[str, Any] = {
-        "status": "Resolved",
-    }
+    payload: Dict[str, Any] = {"status": "Resolved"}
     if resolution_status:
         payload["resolutionStatus"] = resolution_status
     if summary:
         payload["summary"] = summary
-
-    async with httpx.AsyncClient() as client:
-        response = await client.patch(
-            f"{settings.thehive_url}/case/{case_id}",
-            json=payload,
-            headers={"Authorization": f"Bearer {settings.thehive_token}"},
-        )
-        response.raise_for_status()
-        return {"success": True, "message": f"Case {case_id} closed"}
+    await _thehive_request("PATCH", f"/case/{case_id}", json=payload)
+    return {"success": True, "message": f"Case {case_id} closed"}

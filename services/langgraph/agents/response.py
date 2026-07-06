@@ -9,12 +9,12 @@ OSCAR Phase: Report + Response - generate action plan for human approval
 
 from typing import Any, Dict, List, Optional
 from cobalto.agent.base_agent import BaseAgent, AgentConfig, AgentType, AgentStatus, AgentResult
+from cobalto.agent.registry import AgentCapability
 from cobalto.agent.state import AlertState, Severity, ResponseState, ActionType
 from cobalto.agent.prompts import RESPONSE_SYSTEM_PROMPT
 from cobalto.agent.response_tools import (
     n8n_execute, wazuh_active_response, firewall_block, slack_notify
 )
-from cobalto.context.context_package import build_context
 from cobalto.core.logging import get_logger
 from cobalto.core.metrics import record_agent_execution
 import time
@@ -36,7 +36,11 @@ class SilverResponseAgent(BaseAgent):
     - N8N workflow execution
     """
 
-    def __init__(self, config: Optional[AgentConfig] = None):
+    def __init__(
+        self,
+        config: Optional[AgentConfig] = None,
+        context_builder: Optional[Any] = None,
+    ):
         if config is None:
             config = AgentConfig(
                 name="Silver Response Agent",
@@ -47,7 +51,7 @@ class SilverResponseAgent(BaseAgent):
                 tools=["n8n_execute", "wazuh_active_response", "firewall_block", "slack_notify"],
                 requires_approval=True,
             )
-        super().__init__(config)
+        super().__init__(config, context_builder=context_builder)
 
     def get_system_prompt(self) -> str:
         """Get the system prompt for response agent."""
@@ -56,6 +60,19 @@ class SilverResponseAgent(BaseAgent):
     def get_tools(self) -> List[Dict[str, Any]]:
         """Get available tools."""
         return [n8n_execute, wazuh_active_response, firewall_block, slack_notify]
+
+    def get_capabilities(self) -> List[AgentCapability]:
+        """Return capabilities for registry-based routing."""
+        return [
+            AgentCapability.CONTAINMENT,
+            AgentCapability.REMEDIATION,
+            AgentCapability.NOTIFICATION,
+            AgentCapability.APPROVAL_GATING,
+        ]
+
+    def get_required_approval(self) -> List[str]:
+        """Response actions requiring human approval."""
+        return ["isolate_host", "block_ip", "disable_user", "quarantine_file"]
 
     async def run(self, input_data: Dict[str, Any]) -> AgentResult:
         """Execute response logic with approval gate."""
@@ -75,8 +92,8 @@ class SilverResponseAgent(BaseAgent):
                 tenant_id=tenant_id,
             )
 
-            # Build 5-layer context package
-            context_package = await build_context(
+            # Build 5-layer context package (injected or default)
+            context_package = await self.build_context(
                 incident_id=incident_id,
                 agent_type="response",
                 tenant_id=tenant_id,

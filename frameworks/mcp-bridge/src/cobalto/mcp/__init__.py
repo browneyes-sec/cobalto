@@ -26,6 +26,12 @@ from cobalto.mcp.server import MCPServer
 from cobalto.mcp.registry.tools import ToolRegistry, mcp_tool
 from cobalto.mcp.registry.resources import ResourceRegistry, mcp_resource
 from cobalto.mcp.registry.prompts import PromptRegistry, mcp_prompt
+from cobalto.mcp.registry.unified_adapter import (
+    UnifiedMCPAdapter,
+    MCPToolDefinition as UnifiedToolDef,
+    get_unified_adapter,
+)
+from cobalto.mcp.registry.sync import sync_mcp_tools_to_unified
 
 __all__ = [
     # Protocol types
@@ -54,4 +60,9 @@ __all__ = [
     "mcp_tool",
     "mcp_resource",
     "mcp_prompt",
+    # Unified adapter
+    "UnifiedMCPAdapter",
+    "UnifiedToolDef",
+    "get_unified_adapter",
+    "sync_mcp_tools_to_unified",
 ]

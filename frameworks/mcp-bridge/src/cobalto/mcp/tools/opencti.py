@@ -1,10 +1,25 @@
 """
 OpenCTI MCP Tools - Tools for interacting with OpenCTI Threat Intelligence Platform.
+All requests use the pooled HTTP client with circuit breaker.
 """
 
 from typing import Any, Dict, List, Optional
 from cobalto.mcp.registry.tools import mcp_tool
 from cobalto.mcp.registry.resources import mcp_resource
+from cobalto.mcp.transport.pool import execute_request
+
+
+async def _opencti_query(query: str, variables: Dict[str, Any]) -> Any:
+    from cobalto.core.config import get_settings
+    settings = get_settings()
+    return await execute_request(
+        name="opencti",
+        base_url=settings.opencti_url.rstrip("/graphql"),
+        method="POST",
+        path="/graphql",
+        json={"query": query, "variables": variables},
+        headers={"Authorization": f"Bearer {settings.opencti_token}"},
+    )
 
 
 @mcp_tool(
@@ -26,15 +41,9 @@ async def opencti_search_indicators(
     type: Optional[str] = None,
     limit: int = 20,
 ) -> Dict[str, Any]:
-    """Search OpenCTI indicators."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     graphql_query = """
     query SearchIndicators($query: String!, $type: String, $limit: Int) {
-        indicators(search: $query, indicatorTypes: $type ? [$type] : null, first: $limit) {
+        indicators(search: $query, indicatorTypes: [$type], first: $limit) {
             edges {
                 node {
                     id
@@ -50,18 +59,7 @@ async def opencti_search_indicators(
         }
     }
     """
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            settings.opencti_url,
-            json={
-                "query": graphql_query,
-                "variables": {"query": query, "type": type, "limit": limit},
-            },
-            headers={"Authorization": f"Bearer {settings.opencti_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _opencti_query(graphql_query, {"query": query, "type": type, "limit": limit})
 
 
 @mcp_tool(
@@ -81,25 +79,12 @@ async def opencti_get_threat_actor(
     id: Optional[str] = None,
     name: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Get threat actor from OpenCTI."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     if id:
         query = """
         query GetThreatActor($id: ID!) {
             threatActor(id: $id) {
-                id
-                name
-                description
-                firstSeen
-                lastSeen
-                goals
-                sophistication
-                resourceLevel
-                primaryMotivation
+                id name description firstSeen lastSeen goals
+                sophistication resourceLevel primaryMotivation
                 objectLabel { name }
                 indicators { edges { node { id name type } } }
             }
@@ -110,34 +95,14 @@ async def opencti_get_threat_actor(
         query = """
         query SearchThreatActor($name: String!) {
             threatActors(search: $name, first: 1) {
-                edges {
-                    node {
-                        id
-                        name
-                        description
-                        firstSeen
-                        lastSeen
-                        goals
-                        sophistication
-                        resourceLevel
-                        primaryMotivation
-                    }
-                }
+                edges { node { id name description firstSeen lastSeen goals sophistication resourceLevel primaryMotivation } }
             }
         }
         """
         variables = {"name": name}
     else:
         return {"error": "Either id or name must be provided"}
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            settings.opencti_url,
-            json={"query": query, "variables": variables},
-            headers={"Authorization": f"Bearer {settings.opencti_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _opencti_query(query, variables)
 
 
 @mcp_tool(
@@ -157,27 +122,11 @@ async def opencti_get_mitre_attack(
     technique_id: Optional[str] = None,
     limit: int = 20,
 ) -> Dict[str, Any]:
-    """Get MITRE ATT&CK techniques from OpenCTI."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     if technique_id:
         query = """
         query GetAttackPattern($id: String!) {
             attackPatterns(techniqueId: $id, first: 1) {
-                edges {
-                    node {
-                        id
-                        name
-                        description
-                        x_mitre_id
-                        x_mitre_platforms
-                        x_mitre_detection
-                        killChainPhases { phase_name kill_chain_name }
-                    }
-                }
+                edges { node { id name description x_mitre_id x_mitre_platforms x_mitre_detection killChainPhases { phase_name kill_chain_name } } }
             }
         }
         """
@@ -186,28 +135,12 @@ async def opencti_get_mitre_attack(
         query = """
         query ListAttackPatterns($limit: Int) {
             attackPatterns(first: $limit) {
-                edges {
-                    node {
-                        id
-                        name
-                        description
-                        x_mitre_id
-                        x_mitre_platforms
-                    }
-                }
+                edges { node { id name description x_mitre_id x_mitre_platforms } }
             }
         }
         """
         variables = {"limit": limit}
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            settings.opencti_url,
-            json={"query": query, "variables": variables},
-            headers={"Authorization": f"Bearer {settings.opencti_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _opencti_query(query, variables)
 
 
 @mcp_tool(
@@ -227,14 +160,7 @@ async def opencti_enrich_indicator(
     ioc: str,
     ioc_type: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Enrich IOC using OpenCTI."""
-    from cobalto.core.config import get_settings
-    import httpx
     import re
-
-    settings = get_settings()
-
-    # Auto-detect IOC type
     if not ioc_type:
         if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', ioc):
             ioc_type = "IPv4-Addr"
@@ -253,39 +179,14 @@ async def opencti_enrich_indicator(
     query EnrichIndicator($value: String!, $type: String!) {
         indicators(value: $value, indicatorTypes: [$type], first: 1) {
             edges {
-                node {
-                    id
-                    name
-                    type
-                    pattern
-                    valid_from
-                    confidence
-                    createBy { name }
-                    objectLabel { name }
-                    observableValue
-                }
+                node { id name type pattern valid_from confidence createBy { name } objectLabel { name } observableValue }
             }
         }
     }
     """
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            settings.opencti_url,
-            json={"query": query, "variables": {"value": ioc, "type": ioc_type}},
-            headers={"Authorization": f"Bearer {settings.opencti_token}"},
-        )
-        response.raise_for_status()
-        result = response.json()
-
-        # Add enrichment metadata
-        result["enrichment"] = {
-            "ioc": ioc,
-            "ioc_type": ioc_type,
-            "source": "opencti",
-        }
-
-        return result
+    result = await _opencti_query(query, {"value": ioc, "type": ioc_type})
+    result["enrichment"] = {"ioc": ioc, "ioc_type": ioc_type, "source": "opencti"}
+    return result
 
 
 @mcp_resource(
@@ -297,35 +198,10 @@ async def opencti_enrich_indicator(
     tags=["opencti", "indicators"],
 )
 async def opencti_get_indicator_resource(uri: str) -> Dict[str, Any]:
-    """Get indicator resource from OpenCTI."""
-    # Extract indicator ID from URI
     indicator_id = uri.split("/")[-1]
-
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     query = """
     query GetIndicator($id: ID!) {
-        indicator(id: $id) {
-            id
-            name
-            type
-            pattern
-            valid_from
-            confidence
-            createBy { name }
-            objectLabel { name }
-        }
+        indicator(id: $id) { id name type pattern valid_from confidence createBy { name } objectLabel { name } }
     }
     """
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            settings.opencti_url,
-            json={"query": query, "variables": {"id": indicator_id}},
-            headers={"Authorization": f"Bearer {settings.opencti_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _opencti_query(query, {"id": indicator_id})

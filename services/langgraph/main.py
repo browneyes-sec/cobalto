@@ -21,11 +21,30 @@ from cobalto.core.health import HealthChecker, HealthStatus
 from cobalto.agent.supervisor import SupervisorAgent
 from cobalto.agent.base_agent import AgentConfig, AgentType
 
+# Phase 2: Agent Registry + Context injection
+from cobalto.agent.registry import (
+    AgentRegistry,
+    AgentCapability,
+    get_agent_registry,
+)
+from cobalto.agent.tool_registry import (
+    UnifiedToolRegistry,
+    ToolDefinition,
+    ToolRiskLevel,
+    get_tool_registry as get_unified_tool_registry,
+)
+from cobalto.agent.base_agent import BaseAgent
+from cobalto.context.ports import create_context_provider
+
 # MCP imports
 from cobalto.mcp.server import MCPServer
 from cobalto.mcp.registry.tools import get_tool_registry
 from cobalto.mcp.registry.resources import get_resource_registry
 from cobalto.mcp.registry.prompts import get_prompt_registry
+
+# SOAR SDK — SIEM alert normalization (extracted from inline models)
+from cobalto.soar.webhook_models import WazuhAlert, N8NWebhookPayload
+from cobalto.soar.webhook_wazuh import normalize_wazuh_alert, build_alert_context
 
 # Setup logging
 setup_logging()
@@ -40,26 +59,81 @@ async def lifespan(app: FastAPI):
     """Application lifespan."""
     logger.info("langgraph_service_starting", env=settings.app_env)
 
-    # Initialize components
+    # ── Initialize core components ───────────────────────────────
     app.state.metrics = Metrics("langgraph-api")
     app.state.health_checker = HealthChecker("langgraph-api")
-    app.state.supervisor = SupervisorAgent()
 
-    # Initialize MCP Server
-    app.state.mcp_server = MCPServer(
-        name="cobalto-langgraph-mcp",
-        version="0.1.0",
+    # ── Phase 2: Wire AgentRegistry + Context injection ──────────
+
+    # 1. Create context provider from settings
+    context_provider = create_context_provider(
+        qdrant_url=settings.qdrant_url,
+        redis_url=settings.redis_url,
+        opencti_url=settings.opencti_url,
+        opencti_token=settings.opencti_token,
+        max_context_tokens=8000,
     )
 
-    # Import and register MCP tools
+    # 2. Create Silver agents with context injection
+    from services.langgraph.agents.triage import SilverTriageAgent
+    from services.langgraph.agents.analysis import SilverAnalysisAgent
+    from services.langgraph.agents.response import SilverResponseAgent
+    from services.langgraph.agents.threat_intel import ThreatIntelAgent
+
+    triage_agent = SilverTriageAgent(context_builder=context_provider)
+    analysis_agent = SilverAnalysisAgent(context_builder=context_provider)
+    response_agent = SilverResponseAgent(context_builder=context_provider)
+    threat_intel_agent = ThreatIntelAgent()
+
+    # 3. Register agents in AgentRegistry
+    agent_registry = get_agent_registry()
+    agent_registry.register(triage_agent)
+    agent_registry.register(analysis_agent)
+    agent_registry.register(response_agent)
+    agent_registry.register(threat_intel_agent)
+
+    logger.info("agents_registered", count=agent_registry.count())
+
+    # 4. Create supervisor with registry attached
+    app.state.supervisor = SupervisorAgent(agent_registry=agent_registry)
+    app.state.agent_registry = agent_registry
+
+    # 5. Store agents for route handlers
+    app.state.agents = {
+        "triage": triage_agent,
+        "analysis": analysis_agent,
+        "response": response_agent,
+        "threat_intel": threat_intel_agent,
+    }
+
+    # ── Phase 3: Unified Tool Registry + MCP Bridge ─────────────
+    from cobalto.mcp.registry.sync import sync_mcp_tools_to_unified
+
+    # 1. Import MCP tool modules (triggers @mcp_tool decorators on legacy registry)
     _register_mcp_tools()
     _register_mcp_resources()
     _register_mcp_prompts()
 
+    # 2. Sync legacy MCP tools into the single source of truth
+    synced_count = sync_mcp_tools_to_unified(unified_registry=get_unified_tool_registry())
+    logger.info("unified_tool_registry_synced", tool_count=synced_count)
+
+    # 3. Initialize MCP Server with the unified tool registry
+    app.state.mcp_server = MCPServer(
+        name="cobalto-langgraph-mcp",
+        version="0.1.0",
+        unified_tool_registry=unified_registry,
+    )
+
     # SSE session storage
     app.state.mcp_sessions: Dict[str, asyncio.Queue] = {}
 
-    logger.info("langgraph_service_started", mcp_enabled=settings.mcp_server_enabled)
+    logger.info(
+        "langgraph_service_started",
+        mcp_enabled=settings.mcp_server_enabled,
+        agent_count=agent_registry.count(),
+        context_provider="context_provider",
+    )
 
     yield
 
@@ -92,14 +166,32 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS
+# CORS - use configurable allowed origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+
+
+# Middleware for correlation ID
+@app.middleware("http")
+async def correlation_id_middleware(request: Request, call_next):
+    """Inject correlation ID into logs and responses."""
+    import structlog
+
+    correlation_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    structlog.contextvars.bind_contextvars(correlation_id=correlation_id)
+    request.state.correlation_id = correlation_id
+
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = correlation_id
+        return response
+    finally:
+        structlog.contextvars.unbind_contextvars("correlation_id")
 
 
 # Middleware for metrics
@@ -150,36 +242,6 @@ class AgentResponse(BaseModel):
     status: str
     output: Dict[str, Any]
     duration_ms: float
-
-
-class WazuhAlert(BaseModel):
-    """Wazuh alert model."""
-    rule_id: Optional[str] = None
-    rule_level: Optional[int] = None
-    rule_description: Optional[str] = None
-    rule_groups: Optional[str] = None
-    rule_mitre: Optional[Dict[str, Any]] = None
-    agent_id: Optional[str] = None
-    agent_name: Optional[str] = None
-    srcip: Optional[str] = None
-    dstip: Optional[str] = None
-    srcport: Optional[int] = None
-    dstport: Optional[int] = None
-    protocol: Optional[str] = None
-    log: Optional[Dict[str, Any]] = None
-    data: Optional[Dict[str, Any]] = None
-    timestamp: Optional[str] = None
-    full_log: Optional[str] = None
-    location: Optional[str] = None
-
-
-class N8NWebhookPayload(BaseModel):
-    """N8N webhook payload wrapper."""
-    alert_id: str
-    alert: WazuhAlert
-    tenant_id: Optional[str] = None
-    source: str = "wazuh"
-    metadata: Optional[Dict[str, Any]] = None
 
 
 # Routes
@@ -240,27 +302,47 @@ async def analyze_alert(request: AnalyzeRequest):
 
 @app.post("/agent/run", response_model=AgentResponse)
 async def run_agent(request: AgentRequest):
-    """Run a specific agent."""
+    """Run a specific agent using the AgentRegistry."""
     start_time = time.time()
 
     try:
-        # Import and instantiate the appropriate agent
         from cobalto.agent.base_agent import AgentType
 
+        # Find agent by type in the registry
         agent_type = AgentType(request.agent_type)
+        agents = app.state.agent_registry.find_agents_by_type(agent_type)
 
-        # For now, return a placeholder
-        # In production, this would instantiate and run the actual agent
+        if not agents:
+            logger.warning("agent_not_found", agent_type=request.agent_type)
+            # Fallback: try pre-created agents
+            agent = app.state.agents.get(request.agent_type)
+            if agent is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"No agent found for type: {request.agent_type}",
+                )
+        else:
+            agent = agents[0]
+
+        result = await agent.run({
+            **request.input_data,
+            "context": request.context or {},
+        })
+
         duration_ms = (time.time() - start_time) * 1000
 
         return AgentResponse(
-            agent_id=f"{request.agent_type}-{uuid.uuid4().hex[:8]}",
+            agent_id=agent.agent_id,
             agent_type=request.agent_type,
             status="success",
-            output={"message": f"Agent {request.agent_type} executed successfully"},
+            output=result.output,
             duration_ms=duration_ms,
         )
 
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid agent type: {str(e)}")
     except Exception as e:
         logger.exception("run_agent_failed", agent_type=request.agent_type, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -268,13 +350,14 @@ async def run_agent(request: AgentRequest):
 
 @app.post("/agent/triage")
 async def triage_alert(request: AnalyzeRequest):
-    """Triage an alert."""
+    """Triage an alert using pre-created agent with context injection."""
     start_time = time.time()
 
     try:
-        from services.langgraph.agents.triage import TriageAgent
+        agent = app.state.agents.get("triage")
+        if agent is None:
+            raise HTTPException(status_code=503, detail="Triage agent not available")
 
-        agent = TriageAgent()
         result = await agent.run({
             "alert_id": request.alert_id,
             "alert": request.alert,
@@ -290,6 +373,8 @@ async def triage_alert(request: AnalyzeRequest):
             "duration_ms": duration_ms,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("triage_alert_failed", alert_id=request.alert_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -297,13 +382,14 @@ async def triage_alert(request: AnalyzeRequest):
 
 @app.post("/agent/analyze-deep")
 async def analyze_deep(request: AnalyzeRequest):
-    """Deep analysis of an alert."""
+    """Deep analysis of an alert using pre-created agent with context injection."""
     start_time = time.time()
 
     try:
-        from services.langgraph.agents.analysis import AnalysisAgent
+        agent = app.state.agents.get("analysis")
+        if agent is None:
+            raise HTTPException(status_code=503, detail="Analysis agent not available")
 
-        agent = AnalysisAgent()
         result = await agent.run({
             "alert_id": request.alert_id,
             "alert": request.alert,
@@ -319,6 +405,8 @@ async def analyze_deep(request: AnalyzeRequest):
             "duration_ms": duration_ms,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("analyze_deep_failed", alert_id=request.alert_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -326,13 +414,14 @@ async def analyze_deep(request: AnalyzeRequest):
 
 @app.post("/agent/threat-intel")
 async def threat_intel_lookup(request: AnalyzeRequest):
-    """Threat intelligence lookup."""
+    """Threat intelligence lookup using pre-created agent."""
     start_time = time.time()
 
     try:
-        from services.langgraph.agents.threat_intel import ThreatIntelAgent
+        agent = app.state.agents.get("threat_intel")
+        if agent is None:
+            raise HTTPException(status_code=503, detail="Threat intel agent not available")
 
-        agent = ThreatIntelAgent()
         result = await agent.run({
             "alert_id": request.alert_id,
             "alert": request.alert,
@@ -348,6 +437,8 @@ async def threat_intel_lookup(request: AnalyzeRequest):
             "duration_ms": duration_ms,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("threat_intel_failed", alert_id=request.alert_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -355,13 +446,14 @@ async def threat_intel_lookup(request: AnalyzeRequest):
 
 @app.post("/agent/response")
 async def generate_response(request: AnalyzeRequest):
-    """Generate response actions."""
+    """Generate response actions using pre-created agent with context injection."""
     start_time = time.time()
 
     try:
-        from services.langgraph.agents.response import ResponseAgent
+        agent = app.state.agents.get("response")
+        if agent is None:
+            raise HTTPException(status_code=503, detail="Response agent not available")
 
-        agent = ResponseAgent()
         result = await agent.run({
             "alert_id": request.alert_id,
             "alert": request.alert,
@@ -377,6 +469,8 @@ async def generate_response(request: AnalyzeRequest):
             "duration_ms": duration_ms,
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.exception("generate_response_failed", alert_id=request.alert_id, error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
@@ -393,8 +487,8 @@ async def wazuh_webhook(payload: N8NWebhookPayload):
     
     Flow: Wazuh → n8n → Cobalt (this endpoint) → Supervisor → Silver Agents
     
-    This endpoint normalizes the Wazuh alert and forwards it to the supervisor
-    for triage and automated response.
+    Normalization logic is delegated to :func:`cobalto.soar.webhook_wazuh.normalize_wazuh_alert`
+    so it can be unit-tested independently of the FastAPI routing layer.
     """
     start_time = time.time()
     
@@ -409,43 +503,9 @@ async def wazuh_webhook(payload: N8NWebhookPayload):
             tenant_id=payload.tenant_id,
         )
         
-        # Normalize alert to common format
-        normalized_alert = {
-            "id": alert_id,
-            "source": "wazuh",
-            "timestamp": payload.alert.timestamp,
-            "rule": {
-                "id": payload.alert.rule_id,
-                "level": payload.alert.rule_level,
-                "description": payload.alert.rule_description,
-                "groups": payload.alert.rule_groups,
-                "mitre": payload.alert.rule_mitre,
-            },
-            "agent": {
-                "id": payload.alert.agent_id,
-                "name": payload.alert.agent_name,
-            },
-            "network": {
-                "src_ip": payload.alert.srcip,
-                "dst_ip": payload.alert.dstip,
-                "src_port": payload.alert.srcport,
-                "dst_port": payload.alert.dstport,
-                "protocol": payload.alert.protocol,
-            },
-            "raw": {
-                "log": payload.alert.log,
-                "data": payload.alert.data,
-                "full_log": payload.alert.full_log,
-                "location": payload.alert.location,
-            },
-        }
-        
-        # Build context
-        context = {
-            "tenant_id": payload.tenant_id or "default",
-            "source": payload.source,
-            "metadata": payload.metadata or {},
-        }
+        # Delegate normalization to SOAR SDK
+        normalized_alert = normalize_wazuh_alert(payload)
+        context = build_alert_context(payload)
         
         # Run supervisor analysis
         supervisor = app.state.supervisor

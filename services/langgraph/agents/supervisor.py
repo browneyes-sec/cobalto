@@ -59,7 +59,7 @@ class MagentaSupervisor:
         "orient": ["strategize"],
         "strategize": ["collect", "report"],
         "collect": ["analyze"],
-        "analyze": ["strategize", "report"],
+        "analyze": ["report"],
         "report": ["complete"],
     }
 

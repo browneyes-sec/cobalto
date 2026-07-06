@@ -1,9 +1,25 @@
 """
 Cortex MCP Tools - Tools for interacting with Cortex analyzer/responder.
+All requests use the pooled HTTP client with circuit breaker.
 """
 
 from typing import Any, Dict, List, Optional
 from cobalto.mcp.registry.tools import mcp_tool
+from cobalto.mcp.transport.pool import execute_request, get_pool
+import asyncio
+
+
+async def _cortex_request(method: str, path: str, **kwargs) -> Any:
+    from cobalto.core.config import get_settings
+    settings = get_settings()
+    return await execute_request(
+        name="cortex",
+        base_url=settings.cortex_url,
+        method=method,
+        path=path,
+        headers={"Authorization": f"Bearer {settings.cortex_token}"},
+        **kwargs,
+    )
 
 
 @mcp_tool(
@@ -19,24 +35,10 @@ from cobalto.mcp.registry.tools import mcp_tool
     tags=["cortex", "analyzers"],
 )
 async def cortex_get_analyzers(type: Optional[str] = None) -> Dict[str, Any]:
-    """Get Cortex analyzers."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     params: Dict[str, Any] = {}
     if type:
         params["type"] = type
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{settings.cortex_url}/api/analyzer",
-            params=params,
-            headers={"Authorization": f"Bearer {settings.cortex_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _cortex_request("GET", "/api/analyzer", params=params)
 
 
 @mcp_tool(
@@ -52,19 +54,7 @@ async def cortex_get_analyzers(type: Optional[str] = None) -> Dict[str, Any]:
     tags=["cortex", "analyzers"],
 )
 async def cortex_get_analyzer(analyzer_id: str) -> Dict[str, Any]:
-    """Get Cortex analyzer details."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{settings.cortex_url}/api/analyzer/{analyzer_id}",
-            headers={"Authorization": f"Bearer {settings.cortex_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _cortex_request("GET", f"/api/analyzer/{analyzer_id}")
 
 
 @mcp_tool(
@@ -91,46 +81,44 @@ async def cortex_analyze_observable(
     tlp: int = 2,
     message: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Analyze observable with Cortex."""
     from cobalto.core.config import get_settings
-    import httpx
-
     settings = get_settings()
 
     payload = {
         "data": data,
         "dataType": data_type,
         "tlp": tlp,
-        "message": message or f"Automated analysis via MCP",
+        "message": message or "Automated analysis via MCP",
     }
 
-    async with httpx.AsyncClient(timeout=300) as client:
-        # Create job
-        response = await client.post(
-            f"{settings.cortex_url}/api/analyzer/{analyzer_id}/run",
-            json=payload,
+    result = await execute_request(
+        name="cortex",
+        base_url=settings.cortex_url,
+        method="POST",
+        path=f"/api/analyzer/{analyzer_id}/run",
+        json=payload,
+        headers={"Authorization": f"Bearer {settings.cortex_token}"},
+        timeout=300,
+    )
+    job = result
+    job_id = job.get("id")
+    if job_id:
+        pool = await get_pool()
+        client = await pool.get_client(
+            name="cortex",
+            base_url=settings.cortex_url,
             headers={"Authorization": f"Bearer {settings.cortex_token}"},
         )
-        response.raise_for_status()
-        job = response.json()
-
-        # Wait for job to complete
-        job_id = job.get("id")
-        if job_id:
-            import asyncio
-            for _ in range(60):  # Wait up to 5 minutes
-                await asyncio.sleep(5)
-                status_response = await client.get(
-                    f"{settings.cortex_url}/api/job/{job_id}",
-                    headers={"Authorization": f"Bearer {settings.cortex_token}"},
-                )
-                status = status_response.json()
-                if status.get("status") in ["Waiting", "InProgress"]:
-                    continue
-                else:
-                    return status
-
-        return job
+        for _ in range(60):
+            await asyncio.sleep(5)
+            status_response = await client.get(f"/api/job/{job_id}")
+            status = status_response.json()
+            if status.get("status") in ["Waiting", "InProgress"]:
+                continue
+            await pool.record_success("cortex")
+            return status
+        await pool.record_success("cortex")
+    return job
 
 
 @mcp_tool(
@@ -146,24 +134,10 @@ async def cortex_analyze_observable(
     tags=["cortex", "responders"],
 )
 async def cortex_get_responders(type: Optional[str] = None) -> Dict[str, Any]:
-    """Get Cortex responders."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     params: Dict[str, Any] = {}
     if type:
         params["type"] = type
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{settings.cortex_url}/api/responder",
-            params=params,
-            headers={"Authorization": f"Bearer {settings.cortex_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _cortex_request("GET", "/api/responder", params=params)
 
 
 @mcp_tool(
@@ -186,25 +160,8 @@ async def cortex_execute_responder(
     object_type: str,
     object_id: str,
 ) -> Dict[str, Any]:
-    """Execute Cortex responder."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
-    payload = {
-        "objectType": object_type,
-        "objectId": object_id,
-    }
-
-    async with httpx.AsyncClient(timeout=300) as client:
-        response = await client.post(
-            f"{settings.cortex_url}/api/responder/{responder_id}/run",
-            json=payload,
-            headers={"Authorization": f"Bearer {settings.cortex_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    payload = {"objectType": object_type, "objectId": object_id}
+    return await _cortex_request("POST", f"/api/responder/{responder_id}/run", json=payload, timeout=300)
 
 
 @mcp_tool(
@@ -224,24 +181,10 @@ async def cortex_get_jobs(
     status: Optional[str] = None,
     limit: int = 20,
 ) -> Dict[str, Any]:
-    """Get Cortex jobs."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     params: Dict[str, Any] = {"limit": limit}
     if status:
         params["status"] = status
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{settings.cortex_url}/api/job",
-            params=params,
-            headers={"Authorization": f"Bearer {settings.cortex_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _cortex_request("GET", "/api/job", params=params)
 
 
 @mcp_tool(
@@ -257,16 +200,4 @@ async def cortex_get_jobs(
     tags=["cortex", "reports"],
 )
 async def cortex_get_job_report(job_id: str) -> Dict[str, Any]:
-    """Get Cortex job report."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            f"{settings.cortex_url}/api/job/{job_id}/waitreport?atMost=5s",
-            headers={"Authorization": f"Bearer {settings.cortex_token}"},
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _cortex_request("GET", f"/api/job/{job_id}/waitreport?atMost=5s")

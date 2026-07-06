@@ -15,6 +15,17 @@ import structlog
 
 logger = structlog.get_logger(__name__)
 
+# Lazy-load settings to avoid circular imports
+_settings = None
+
+
+def _get_settings():
+    global _settings
+    if _settings is None:
+        from cobalto.core.config import get_settings
+        _settings = get_settings()
+    return _settings
+
 
 class N8NExecuteInput(BaseModel):
     """Input for n8n workflow execution."""
@@ -36,12 +47,13 @@ async def n8n_execute(workflow_id: str, payload: Dict[str, Any] = {}) -> str:
     """
     try:
         import httpx
+        settings = _get_settings()
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"http://localhost:5678/api/v1/workflows/{workflow_id}/execute",
+                f"{settings.n8n_url}/api/v1/workflows/{workflow_id}/execute",
                 headers={
-                    "X-N8N-API-KEY": "change-me",
+                    "X-N8N-API-KEY": settings.n8n_api_key,
                     "Content-Type": "application/json",
                 },
                 json={"payload": payload},
@@ -86,12 +98,13 @@ async def wazuh_active_response(agent_id: str, command: str, arguments: List[str
     """
     try:
         import httpx
+        settings = _get_settings()
 
         async with httpx.AsyncClient() as client:
             response = await client.put(
-                f"https://localhost:55000/active-response/{agent_id}",
-                auth=("wazuh", "admin"),
-                verify=False,
+                f"{settings.wazuh_url}/active-response/{agent_id}",
+                auth=(settings.wazuh_username, settings.wazuh_password),
+                verify=settings.wazuh_verify_ssl,
                 json={
                     "command": command,
                     "arguments": arguments,
@@ -182,6 +195,7 @@ async def slack_notify(channel: str, message: str, severity: str = "info") -> st
     """
     try:
         import httpx
+        settings = _get_settings()
 
         # Build Slack message with formatting
         emoji = {
@@ -196,7 +210,7 @@ async def slack_notify(channel: str, message: str, severity: str = "info") -> st
             response = await client.post(
                 "https://slack.com/api/chat.postMessage",
                 headers={
-                    "Authorization": "Bearer xoxb-your-token",
+                    "Authorization": f"Bearer {settings.slack_bot_token}",
                     "Content-Type": "application/json",
                 },
                 json={

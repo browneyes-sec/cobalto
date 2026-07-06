@@ -1,9 +1,25 @@
 """
 Response MCP Tools - Automated response actions.
+All requests use the pooled HTTP client with circuit breaker.
 """
 
 from typing import Any, Dict, List, Optional
 from cobalto.mcp.registry.tools import mcp_tool
+from cobalto.mcp.transport.pool import execute_request
+
+
+async def _wazuh_active_response(agent_id: str, payload: Dict[str, Any]) -> None:
+    from cobalto.core.config import get_settings
+    settings = get_settings()
+    await execute_request(
+        name="wazuh",
+        base_url=settings.wazuh_url,
+        method="PUT",
+        path=f"/active-response/{agent_id}",
+        json=payload,
+        auth=(settings.wazuh_username, settings.wazuh_password),
+        verify=settings.wazuh_verify_ssl,
+    )
 
 
 @mcp_tool(
@@ -26,34 +42,20 @@ async def isolate_host(
     reason: str,
     duration_minutes: int = 60,
 ) -> Dict[str, Any]:
-    """Isolate host from network."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     payload = {
         "command": "netsh",
         "arguments": ["advfirewall", "set", "allprofiles", "state", "off"],
         "timeout": duration_minutes * 60,
     }
-
-    async with httpx.AsyncClient(verify=settings.wazuh_verify_ssl) as client:
-        response = await client.put(
-            f"{settings.wazuh_url}/active-response/{agent_id}",
-            json=payload,
-            auth=(settings.wazuh_username, settings.wazuh_password),
-        )
-        response.raise_for_status()
-
-        return {
-            "success": True,
-            "action": "isolate_host",
-            "agent_id": agent_id,
-            "duration_minutes": duration_minutes,
-            "reason": reason,
-            "message": f"Host {agent_id} isolated for {duration_minutes} minutes",
-        }
+    await _wazuh_active_response(agent_id, payload)
+    return {
+        "success": True,
+        "action": "isolate_host",
+        "agent_id": agent_id,
+        "duration_minutes": duration_minutes,
+        "reason": reason,
+        "message": f"Host {agent_id} isolated for {duration_minutes} minutes",
+    }
 
 
 @mcp_tool(
@@ -76,40 +78,20 @@ async def disable_user_account(
     username: str,
     os_type: str,
 ) -> Dict[str, Any]:
-    """Disable a user account."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     if os_type == "windows":
-        command = "net"
-        arguments = ["user", username, "/active:no"]
+        command, arguments = "net", ["user", username, "/active:no"]
     else:
-        command = "passwd"
-        arguments = ["-l", username]
+        command, arguments = "passwd", ["-l", username]
 
-    payload = {
-        "command": command,
-        "arguments": arguments,
+    await _wazuh_active_response(agent_id, {"command": command, "arguments": arguments})
+    return {
+        "success": True,
+        "action": "disable_user_account",
+        "agent_id": agent_id,
+        "username": username,
+        "os_type": os_type,
+        "message": f"Account {username} disabled on {agent_id}",
     }
-
-    async with httpx.AsyncClient(verify=settings.wazuh_verify_ssl) as client:
-        response = await client.put(
-            f"{settings.wazuh_url}/active-response/{agent_id}",
-            json=payload,
-            auth=(settings.wazuh_username, settings.wazuh_password),
-        )
-        response.raise_for_status()
-
-        return {
-            "success": True,
-            "action": "disable_user_account",
-            "agent_id": agent_id,
-            "username": username,
-            "os_type": os_type,
-            "message": f"Account {username} disabled on {agent_id}",
-        }
 
 
 @mcp_tool(
@@ -132,36 +114,17 @@ async def quarantine_file(
     file_path: str,
     quarantine_path: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Quarantine a suspicious file."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     if not quarantine_path:
         quarantine_path = f"/quarantine/{file_path.replace('/', '_')}"
-
-    payload = {
-        "command": "mv",
-        "arguments": [file_path, quarantine_path],
+    await _wazuh_active_response(agent_id, {"command": "mv", "arguments": [file_path, quarantine_path]})
+    return {
+        "success": True,
+        "action": "quarantine_file",
+        "agent_id": agent_id,
+        "file_path": file_path,
+        "quarantine_path": quarantine_path,
+        "message": f"File {file_path} quarantined",
     }
-
-    async with httpx.AsyncClient(verify=settings.wazuh_verify_ssl) as client:
-        response = await client.put(
-            f"{settings.wazuh_url}/active-response/{agent_id}",
-            json=payload,
-            auth=(settings.wazuh_username, settings.wazuh_password),
-        )
-        response.raise_for_status()
-
-        return {
-            "success": True,
-            "action": "quarantine_file",
-            "agent_id": agent_id,
-            "file_path": file_path,
-            "quarantine_path": quarantine_path,
-            "message": f"File {file_path} quarantined",
-        }
 
 
 @mcp_tool(
@@ -175,44 +138,13 @@ async def quarantine_file(
     tags=["response", "catalog"],
 )
 async def get_response_actions() -> Dict[str, Any]:
-    """Get catalog of available response actions."""
     return {
         "actions": [
-            {
-                "name": "block_ip",
-                "description": "Block an IP address via firewall",
-                "category": "network",
-                "requires_approval": True,
-            },
-            {
-                "name": "isolate_host",
-                "description": "Isolate host from network",
-                "category": "network",
-                "requires_approval": True,
-            },
-            {
-                "name": "disable_user_account",
-                "description": "Disable a user account",
-                "category": "identity",
-                "requires_approval": True,
-            },
-            {
-                "name": "quarantine_file",
-                "description": "Quarantine a suspicious file",
-                "category": "endpoint",
-                "requires_approval": True,
-            },
-            {
-                "name": "kill_process",
-                "description": "Kill a running process",
-                "category": "endpoint",
-                "requires_approval": True,
-            },
-            {
-                "name": "collect_forensics",
-                "description": "Collect forensic artifacts",
-                "category": "investigation",
-                "requires_approval": False,
-            },
+            {"name": "block_ip", "description": "Block an IP address via firewall", "category": "network", "requires_approval": True},
+            {"name": "isolate_host", "description": "Isolate host from network", "category": "network", "requires_approval": True},
+            {"name": "disable_user_account", "description": "Disable a user account", "category": "identity", "requires_approval": True},
+            {"name": "quarantine_file", "description": "Quarantine a suspicious file", "category": "endpoint", "requires_approval": True},
+            {"name": "kill_process", "description": "Kill a running process", "category": "endpoint", "requires_approval": True},
+            {"name": "collect_forensics", "description": "Collect forensic artifacts", "category": "investigation", "requires_approval": False},
         ],
     }

@@ -84,14 +84,22 @@ class ApprovalService:
     def __init__(
         self,
         redis_url: str = "redis://localhost:6379",
-        hmac_secret: str = "approval-secret-change-in-production",
+        hmac_secret: Optional[str] = None,
         slack_token: Optional[str] = None,
         teams_webhook: Optional[str] = None,
         default_timeout_minutes: int = 10,
     ):
         self.redis_url = redis_url
-        self.hmac_secret = hmac_secret
-        self.slack_token = slack_token
+        # Load from Settings if not provided
+        from cobalto.core.config import get_settings
+        settings = get_settings()
+        if hmac_secret is None:
+            self.hmac_secret = settings.approval_hmac_secret
+            if not self.hmac_secret:
+                raise ValueError("APPROVAL_HMAC_SECRET environment variable is required")
+        else:
+            self.hmac_secret = hmac_secret
+        self.slack_token = slack_token or settings.slack_bot_token
         self.teams_webhook = teams_webhook
         self.default_timeout_minutes = default_timeout_minutes
         self._redis: Optional[redis.Redis] = None

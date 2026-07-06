@@ -9,10 +9,10 @@ OSCAR Phase: Orient - reads alert, enriches IOCs, scores severity
 
 from typing import Any, Dict, List, Optional
 from cobalto.agent.base_agent import BaseAgent, AgentConfig, AgentType, AgentStatus, AgentResult
+from cobalto.agent.registry import AgentCapability
 from cobalto.agent.state import AlertState, Severity, AlertStatus
 from cobalto.agent.prompts import TRIAGE_SYSTEM_PROMPT
 from cobalto.agent.triage_tools import mitre_rag_search, cortex_enrich, vt_lookup
-from cobalto.context.context_package import build_context
 from cobalto.core.logging import get_logger
 from cobalto.core.metrics import record_agent_execution
 import time
@@ -31,7 +31,11 @@ class SilverTriageAgent(BaseAgent):
     - Severity assessment with business context
     """
 
-    def __init__(self, config: Optional[AgentConfig] = None):
+    def __init__(
+        self,
+        config: Optional[AgentConfig] = None,
+        context_builder: Optional[Any] = None,
+    ):
         if config is None:
             config = AgentConfig(
                 name="Silver Triage Agent",
@@ -41,7 +45,7 @@ class SilverTriageAgent(BaseAgent):
                 temperature=0.0,
                 tools=["mitre_rag_search", "cortex_enrich", "vt_lookup"],
             )
-        super().__init__(config)
+        super().__init__(config, context_builder=context_builder)
 
     def get_system_prompt(self) -> str:
         """Get the system prompt for triage agent."""
@@ -50,6 +54,19 @@ class SilverTriageAgent(BaseAgent):
     def get_tools(self) -> List[Dict[str, Any]]:
         """Get available tools."""
         return [mitre_rag_search, cortex_enrich, vt_lookup]
+
+    def get_capabilities(self) -> List[AgentCapability]:
+        """Return capabilities for registry-based routing."""
+        return [
+            AgentCapability.ALERT_PARSING,
+            AgentCapability.SEVERITY_ASSESSMENT,
+            AgentCapability.IOC_EXTRACTION,
+            AgentCapability.IOC_ENRICHMENT,
+        ]
+
+    def get_required_approval(self) -> List[str]:
+        """Triage requires no human approval."""
+        return []
 
     async def run(self, input_data: Dict[str, Any]) -> AgentResult:
         """Execute triage logic with 5-layer context."""
@@ -67,8 +84,8 @@ class SilverTriageAgent(BaseAgent):
                 tenant_id=tenant_id,
             )
 
-            # Build 5-layer context package
-            context_package = await build_context(
+            # Build 5-layer context package (injected or default)
+            context_package = await self.build_context(
                 incident_id=incident_id,
                 agent_type="triage",
                 tenant_id=tenant_id,

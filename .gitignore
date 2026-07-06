@@ -52,3 +52,10 @@ secrets/
 # Local development
 .local/
 dev/.playbook_versions/
+.playbook_versions/
+
+# Build artifacts
+*.egg-info/
+.eggs/
+dist/
+build/

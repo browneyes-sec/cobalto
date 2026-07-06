@@ -1,9 +1,25 @@
 """
 Wazuh MCP Tools - Tools for interacting with Wazuh SIEM.
+All requests use the pooled HTTP client with circuit breaker.
 """
 
 from typing import Any, Dict, List, Optional
 from cobalto.mcp.registry.tools import mcp_tool
+from cobalto.mcp.transport.pool import execute_request
+
+
+async def _wazuh_request(method: str, path: str, **kwargs) -> Any:
+    from cobalto.core.config import get_settings
+    settings = get_settings()
+    return await execute_request(
+        name="wazuh",
+        base_url=settings.wazuh_url,
+        method=method,
+        path=path,
+        auth=(settings.wazuh_username, settings.wazuh_password),
+        verify=settings.wazuh_verify_ssl,
+        **kwargs,
+    )
 
 
 @mcp_tool(
@@ -35,17 +51,7 @@ async def wazuh_get_alerts(
     start_time: Optional[str] = None,
     end_time: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Get alerts from Wazuh."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
-    params: Dict[str, Any] = {
-        "limit": limit,
-        "offset": offset,
-    }
-
+    params: Dict[str, Any] = {"limit": limit, "offset": offset}
     if level is not None:
         params["level"] = level
     if group:
@@ -58,15 +64,7 @@ async def wazuh_get_alerts(
         params["start_time"] = start_time
     if end_time:
         params["end_time"] = end_time
-
-    async with httpx.AsyncClient(verify=settings.wazuh_verify_ssl) as client:
-        response = await client.get(
-            f"{settings.wazuh_url}/alerts",
-            params=params,
-            auth=(settings.wazuh_username, settings.wazuh_password),
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _wazuh_request("GET", "/alerts", params=params)
 
 
 @mcp_tool(
@@ -86,24 +84,10 @@ async def wazuh_get_agents(
     status: Optional[str] = None,
     limit: int = 500,
 ) -> Dict[str, Any]:
-    """Get Wazuh agents."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     params: Dict[str, Any] = {"limit": limit}
     if status:
         params["status"] = status
-
-    async with httpx.AsyncClient(verify=settings.wazuh_verify_ssl) as client:
-        response = await client.get(
-            f"{settings.wazuh_url}/agents",
-            params=params,
-            auth=(settings.wazuh_username, settings.wazuh_password),
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _wazuh_request("GET", "/agents", params=params)
 
 
 @mcp_tool(
@@ -119,19 +103,7 @@ async def wazuh_get_agents(
     tags=["wazuh", "agents"],
 )
 async def wazuh_get_agent_info(agent_id: str) -> Dict[str, Any]:
-    """Get Wazuh agent details."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
-    async with httpx.AsyncClient(verify=settings.wazuh_verify_ssl) as client:
-        response = await client.get(
-            f"{settings.wazuh_url}/agents/{agent_id}",
-            auth=(settings.wazuh_username, settings.wazuh_password),
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _wazuh_request("GET", f"/agents/{agent_id}")
 
 
 @mcp_tool(
@@ -154,25 +126,12 @@ async def wazuh_active_response(
     command: str,
     arguments: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """Execute Wazuh active response."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
-    payload = {
-        "command": command,
-        "arguments": arguments or [],
-    }
-
-    async with httpx.AsyncClient(verify=settings.wazuh_verify_ssl) as client:
-        response = await client.put(
-            f"{settings.wazuh_url}/active-response/{agent_id}",
-            json=payload,
-            auth=(settings.wazuh_username, settings.wazuh_password),
-        )
-        response.raise_for_status()
-        return {"success": True, "message": f"Active response executed on agent {agent_id}"}
+    await _wazuh_request(
+        "PUT",
+        f"/active-response/{agent_id}",
+        json={"command": command, "arguments": arguments or []},
+    )
+    return {"success": True, "message": f"Active response executed on agent {agent_id}"}
 
 
 @mcp_tool(
@@ -195,30 +154,12 @@ async def wazuh_block_ip(
     ip: str,
     timeout: int = 1800,
 ) -> Dict[str, Any]:
-    """Block IP via Wazuh active response."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
-    payload = {
-        "command": "firewall-drop",
-        "arguments": ["-a", "add", "-s", ip],
-        "timeout": timeout,
-    }
-
-    async with httpx.AsyncClient(verify=settings.wazuh_verify_ssl) as client:
-        response = await client.put(
-            f"{settings.wazuh_url}/active-response/{agent_id}",
-            json=payload,
-            auth=(settings.wazuh_username, settings.wazuh_password),
-        )
-        response.raise_for_status()
-        return {
-            "success": True,
-            "message": f"IP {ip} blocked on agent {agent_id}",
-            "timeout": timeout,
-        }
+    await _wazuh_request(
+        "PUT",
+        f"/active-response/{agent_id}",
+        json={"command": "firewall-drop", "arguments": ["-a", "add", "-s", ip], "timeout": timeout},
+    )
+    return {"success": True, "message": f"IP {ip} blocked on agent {agent_id}", "timeout": timeout}
 
 
 @mcp_tool(
@@ -238,21 +179,7 @@ async def wazuh_get_rules(
     group: Optional[str] = None,
     limit: int = 100,
 ) -> Dict[str, Any]:
-    """Get Wazuh rules."""
-    from cobalto.core.config import get_settings
-    import httpx
-
-    settings = get_settings()
-
     params: Dict[str, Any] = {"limit": limit}
     if group:
         params["group"] = group
-
-    async with httpx.AsyncClient(verify=settings.wazuh_verify_ssl) as client:
-        response = await client.get(
-            f"{settings.wazuh_url}/rules",
-            params=params,
-            auth=(settings.wazuh_username, settings.wazuh_password),
-        )
-        response.raise_for_status()
-        return response.json()
+    return await _wazuh_request("GET", "/rules", params=params)

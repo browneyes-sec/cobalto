@@ -109,11 +109,12 @@ jobs:
       - name: Install security tools
         run: pip install bandit safety
       - name: Run bandit
-        run: bandit -r frameworks/ services/ agents/ -f json -o bandit-report.json || true
+        run: bandit -r frameworks/ services/ agents/ -f json -o bandit-report.json
       - name: Check dependencies
-        run: safety check --output json > safety-report.json || true
+        run: safety check --output json > safety-report.json
       - name: Upload security reports
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: security-reports
           path: |

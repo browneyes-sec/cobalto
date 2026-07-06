@@ -1,6 +1,12 @@
 """
 Base agent class for all Cobalto security AI agents.
 Provides the foundation for LangGraph-based agent workflows.
+
+Supports optional context injection via ContextBuilderProtocol.
+When no context_builder is provided, agents fall back to the
+production ContextBuilder from context-engine (backward compatible).
+
+See cobalto.agent.protocols.ContextBuilderProtocol for the interface.
 """
 
 import uuid
@@ -66,14 +72,27 @@ class AgentResult(BaseModel):
 
 
 class BaseAgent(ABC):
-    """Base class for all Cobalto security AI agents."""
+    """Base class for all Cobalto security AI agents.
 
-    def __init__(self, config: AgentConfig):
+    Supports optional context injection:
+        agent = MyAgent(config, context_builder=my_builder)
+        ctx = await agent.build_context("inc-001", "triage", "tenant-1")
+
+    When no context_builder is provided, build_context() falls back
+    to the production ContextBuilder from context-engine.
+    """
+
+    def __init__(
+        self,
+        config: AgentConfig,
+        context_builder: Optional[Any] = None,
+    ):
         self.config = config
         self.agent_id = f"{config.agent_type.value}-{uuid.uuid4().hex[:8]}"
         self.status = AgentStatus.IDLE
         self._execution_count = 0
         self._total_duration = 0.0
+        self._context_builder = context_builder
 
     @property
     def name(self) -> str:
@@ -101,6 +120,47 @@ class BaseAgent(ABC):
     async def __call__(self, input_data: Dict[str, Any]) -> AgentResult:
         """Make the agent callable."""
         return await self.run(input_data)
+
+    # ── Context injection support ────────────────────────────────
+
+    async def build_context(
+        self,
+        incident_id: str,
+        agent_type: str,
+        tenant_id: str,
+        alert_data: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Build 5-layer context for this agent invocation.
+
+        Uses the injected context_builder if available, otherwise
+        falls back to the production ContextBuilder from context-engine.
+
+        Args:
+            incident_id: Unique identifier for the incident/alert.
+            agent_type: Type of agent requesting context.
+            tenant_id: Tenant identifier for multi-tenant isolation.
+            alert_data: Optional raw alert data for context enrichment.
+
+        Returns:
+            ContextPackage with semantic, operational, intelligence,
+            policy, and memory layers populated.
+        """
+        if self._context_builder is not None:
+            return await self._context_builder.build(
+                incident_id=incident_id,
+                agent_type=agent_type,
+                tenant_id=tenant_id,
+                alert_data=alert_data,
+            )
+
+        # Fallback to production ContextBuilder
+        from cobalto.context.context_package import build_context  # type: ignore[import-untyped]
+        return await build_context(
+            incident_id=incident_id,
+            agent_type=agent_type,
+            tenant_id=tenant_id,
+            alert_data=alert_data,
+        )
 
     def get_stats(self) -> Dict[str, Any]:
         """Get agent statistics."""

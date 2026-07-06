@@ -14,6 +14,17 @@ import structlog
 
 logger = structlog.get_logger(__name__)
 
+# Lazy-load settings to avoid circular imports
+_settings = None
+
+
+def _get_settings():
+    global _settings
+    if _settings is None:
+        from cobalto.core.config import get_settings
+        _settings = get_settings()
+    return _settings
+
 
 class OpenCTIQueryInput(BaseModel):
     """Input for OpenCTI GraphQL query."""
@@ -37,6 +48,7 @@ async def opencti_query(query_type: str, search_term: str, limit: int = 10) -> s
     """
     try:
         import httpx
+        settings = _get_settings()
 
         # Build GraphQL query based on type
         queries = {
@@ -98,9 +110,9 @@ async def opencti_query(query_type: str, search_term: str, limit: int = 10) -> s
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                "http://localhost:4000/graphql",
+                settings.opencti_url,
                 headers={
-                    "Authorization": "Bearer d41d8cd98f00b204e9800998ecf8427e",
+                    "Authorization": f"Bearer {settings.opencti_token}",
                     "Content-Type": "application/json",
                 },
                 json={
@@ -147,6 +159,7 @@ async def misp_correlate(ioc_type: str, ioc_value: str) -> str:
     """
     try:
         import httpx
+        settings = _get_settings()
 
         # Map IOC type to MISP object type
         misp_types = {
@@ -162,9 +175,9 @@ async def misp_correlate(ioc_type: str, ioc_value: str) -> str:
         # Search MISP for events containing this IOC
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                "http://localhost:8080/events/restSearch",
+                f"{settings.misp_url}/events/restSearch",
                 headers={
-                    "Authorization": "admin@cobalto.local",
+                    "Authorization": settings.misp_auth_key,
                     "Accept": "Application/json",
                     "Content-Type": "application/json",
                 },
@@ -223,6 +236,7 @@ async def es_query(index: str, query: str, time_range: str = "24h", limit: int =
     """
     try:
         import httpx
+        settings = _get_settings()
 
         # Convert time range to milliseconds
         time_map = {
@@ -251,11 +265,21 @@ async def es_query(index: str, query: str, time_range: str = "24h", limit: int =
         }
 
         async with httpx.AsyncClient() as client:
+            # Build auth headers if credentials are configured
+            headers = {"Content-Type": "application/json"}
+            if settings.opensearch_username and settings.opensearch_password:
+                import base64
+                auth = base64.b64encode(
+                    f"{settings.opensearch_username}:{settings.opensearch_password}".encode()
+                ).decode()
+                headers["Authorization"] = f"Basic {auth}"
+
             response = await client.post(
-                f"http://localhost:9200/{index}/_search",
-                headers={"Content-Type": "application/json"},
+                f"{settings.opensearch_url}/{index}/_search",
+                headers=headers,
                 json=es_query,
                 timeout=15.0,
+                verify=settings.opensearch_verify_certs,
             )
 
             if response.status_code == 200:

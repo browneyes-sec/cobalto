@@ -5,6 +5,7 @@ Queries OpenCTI and identifies threat actors.
 
 from typing import Any, Dict, List, Optional
 from cobalto.agent.base_agent import BaseAgent, AgentConfig, AgentType, AgentStatus, AgentResult
+from cobalto.agent.registry import AgentCapability
 from cobalto.agent.prompts import THREAT_INTEL_SYSTEM_PROMPT
 from cobalto.core.logging import get_logger
 from cobalto.core.metrics import record_agent_execution
@@ -33,6 +34,19 @@ class ThreatIntelAgent(BaseAgent):
 
     def get_tools(self) -> List[Dict[str, Any]]:
         """Get available tools."""
+        return []
+
+    def get_capabilities(self) -> List[AgentCapability]:
+        """Return capabilities for registry-based routing."""
+        return [
+            AgentCapability.OPENCTI_QUERY,
+            AgentCapability.MISP_CORRELATION,
+            AgentCapability.THREAT_ACTOR_PROFILING,
+            AgentCapability.CVE_LOOKUP,
+        ]
+
+    def get_required_approval(self) -> List[str]:
+        """Threat intel requires no human approval (read-only)."""
         return []
 
     async def run(self, input_data: Dict[str, Any]) -> AgentResult:

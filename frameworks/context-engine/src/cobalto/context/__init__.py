@@ -18,6 +18,15 @@ from .intelligence import IntelligenceLayer
 from .policy import PolicyLayer
 from .memory import MemoryLayer
 
+# New Phase 1 abstractions
+from .ports import (
+    ContextPort,
+    ContextProvider,
+    ContextProtocol,
+    MockContextBuilder,
+    create_context_provider,
+)
+
 __all__ = [
     "ContextBuilder",
     "ContextPackage",
@@ -27,4 +36,10 @@ __all__ = [
     "IntelligenceLayer",
     "PolicyLayer",
     "MemoryLayer",
+    # New Phase 1
+    "ContextPort",
+    "ContextProvider",
+    "ContextProtocol",
+    "MockContextBuilder",
+    "create_context_provider",
 ]
