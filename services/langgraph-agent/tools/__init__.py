@@ -2,6 +2,8 @@ import os
 import httpx
 from typing import Optional
 
+from middleware.metrics import metrics
+
 
 async def mitre_attack_search(query: str) -> list[dict]:
     qdrant_url = os.getenv("QDRANT_URL", "http://localhost:6333")
@@ -38,6 +40,10 @@ async def mitre_attack_search(query: str) -> list[dict]:
         ]
 
 
+# Instrument for metrics
+mitre_attack_search = metrics.instrument_tool("mitre_attack_search")(mitre_attack_search)
+
+
 async def enrich_ioc(indicator: str) -> dict:
     cortex_url = os.getenv("CORTEX_URL", "http://localhost:9001")
     api_key = os.getenv("CORTEX_API_KEY", "")
@@ -51,6 +57,10 @@ async def enrich_ioc(indicator: str) -> dict:
         )
         response.raise_for_status()
         return response.json().get("data", {})
+
+
+# Instrument for metrics
+enrich_ioc = metrics.instrument_tool("enrich_ioc")(enrich_ioc)
 
 
 async def opencti_query(stix_pattern: str) -> dict:
@@ -91,6 +101,10 @@ async def opencti_query(stix_pattern: str) -> dict:
         )
         response.raise_for_status()
         return response.json().get("data", {})
+
+
+# Instrument for metrics
+opencti_query = metrics.instrument_tool("opencti_query")(opencti_query)
 
 
 def _is_ip(indicator: str) -> bool:
