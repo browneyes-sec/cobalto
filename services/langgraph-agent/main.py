@@ -95,6 +95,31 @@ class AgentResult(BaseModel):
     messages: list[str]
 
 
+# ── Webhook Models ──────────────────────────────────────────────────
+
+class WazuhAlertIn(BaseModel):
+    """Wazuh alert fields delivered via n8n webhook."""
+    rule_id: str | None = None
+    rule_level: int | None = None
+    rule_description: str | None = None
+    agent_id: str | None = None
+    agent_name: str | None = None
+    srcip: str | None = None
+    dstip: str | None = None
+    timestamp: str | None = None
+    full_log: str | None = None
+    log: dict | None = None
+    data: dict | None = None
+
+
+class WazuhWebhookPayload(BaseModel):
+    """Incoming webhook payload wrapped by n8n."""
+    alert_id: str
+    alert: WazuhAlertIn
+    source: str = "wazuh"
+    tenant_id: str | None = None
+
+
 # ── Middleware: Request Timing & Audit ──────────────────────────────
 
 @app.middleware("http")
@@ -144,14 +169,10 @@ async def audit_and_metrics_middleware(request: Request, call_next):
 
 # ── API Endpoints ───────────────────────────────────────────────────
 
-@app.post("/agent/analyze", response_model=AgentResult)
-async def analyze_alert(payload: AlertPayload):
-    """
-    Analyze a security alert through the multi-agent pipeline.
+# ── Shared Agent Pipeline ─────────────────────────────────────────────
 
-    The alert goes through: triage → analysis → threat intel → response → human approval → documentation.
-    Returns a comprehensive incident report with response actions.
-    """
+async def _run_agent_pipeline(payload: AlertPayload, source: str = "wazuh") -> AgentResult:
+    """Core agent execution logic shared by /agent/analyze and /webhook/*."""
     config = {"configurable": {"thread_id": str(uuid.uuid4())}}
 
     # ── Input Validation ──
@@ -220,7 +241,7 @@ async def analyze_alert(payload: AlertPayload):
         metrics.agent_investigation_started()
         metrics.agent_execution("system", elapsed, status="success")
         metrics.alert_received(
-            source=payload.get("source", "wazuh"),
+            source=source,
             severity=severity,
         )
 
@@ -255,6 +276,47 @@ async def analyze_alert(payload: AlertPayload):
         approval_timeout=final_state.get("approval_timeout", False),
         messages=final_state.get("messages", []),
     )
+
+
+@app.post("/agent/analyze", response_model=AgentResult)
+async def analyze_alert(payload: AlertPayload):
+    """
+    Analyze a security alert through the multi-agent pipeline.
+
+    The alert goes through: triage → analysis → threat intel → response → human approval → documentation.
+    Returns a comprehensive incident report with response actions.
+    """
+    return await _run_agent_pipeline(payload)
+
+
+@app.post("/webhook/wazuh", response_model=AgentResult)
+async def webhook_wazuh(payload: WazuhWebhookPayload):
+    """
+    Receive a Wazuh alert via n8n webhook and analyze it.
+
+    Normalizes the incoming n8n-wrapped Wazuh alert into the internal
+    ``AlertPayload`` format, then runs the full agent pipeline (triage →
+    analysis → threat intel → response → human approval → documentation).
+
+    Returns a comprehensive incident report with response actions.
+    """
+    alert = payload.alert
+
+    # Normalize n8n webhook fields to internal AlertPayload format
+    # Note: 'source' is passed separately (schema enforces additionalProperties: false)
+    normalized: AlertPayload = {
+        "alert_id": payload.alert_id,
+        "rule_id": int(alert.rule_id) if alert.rule_id and alert.rule_id.isdigit() else 100000,
+        "rule_description": alert.rule_description or "",
+        "alert_level": alert.rule_level or 0,
+        "source_ip": alert.srcip,
+        "dest_ip": alert.dstip,
+        "agent_name": alert.agent_name or "",
+        "timestamp": alert.timestamp or "",
+        "raw_log": alert.full_log or str(alert.log or {}),
+    }
+
+    return await _run_agent_pipeline(normalized, source=payload.source)
 
 
 @app.get("/health")
