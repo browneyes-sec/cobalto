@@ -60,7 +60,7 @@ jobs:
 
       # ── TypeScript type checking ──
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
@@ -245,7 +245,7 @@ jobs:
           pip install bcrypt httpx pytest
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -372,7 +372,7 @@ jobs:
         run: pip install bcrypt httpx
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
 
