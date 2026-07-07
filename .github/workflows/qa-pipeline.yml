@@ -350,7 +350,232 @@ jobs:
           kubectl logs -n cobalto deployment/console-auth > reports/e2e-auth-logs.txt 2>&1 || true
         continue-on-error: true
 
-  # ── Phase 7: K8s Hardening Validation ─────────────────────────────
+  # ── Phase 7: Performance Benchmarking ────────────────────────────
+  performance-benchmark:
+    name: Performance Benchmark
+    # Run on push to main, manual dispatch, or PRs with 'perf' label
+    if: >
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+      || github.event_name == 'workflow_dispatch'
+      || contains(github.event.pull_request.labels.*.name, 'perf')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Python dependencies
+        run: pip install bcrypt httpx
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: cobalto-bench
+          config: tests/e2e/kind/cluster.yaml
+          wait: 120s
+
+      - name: Build and load Docker images
+        run: |
+          # LangGraph agent (primary benchmark target)
+          docker build -t cobalto/langgraph-agent:bench \
+            services/langgraph-agent/
+          # Auth service
+          docker build -t cobalto/console-auth:bench \
+            services/console-auth/
+          # Console
+          docker build -t cobalto/cobalt-console:bench \
+            services/cobalt-console/
+
+          kind load docker-image cobalto/langgraph-agent:bench \
+            --name cobalto-bench
+          kind load docker-image cobalto/console-auth:bench \
+            --name cobalto-bench
+          kind load docker-image cobalto/cobalt-console:bench \
+            --name cobalto-bench
+
+      - name: Create secrets and deploy
+        run: |
+          # Auth secrets
+          BCRYPT_HASH=$(python3 -c \
+            "import bcrypt; h=bcrypt.hashpw(b'testpassword123', bcrypt.gensalt(rounds=4)); print(h.decode())")
+          USERS_STRING="testadmin:${BCRYPT_HASH}:admin:Test Admin"
+
+          kubectl create namespace cobalto --dry-run=client -o yaml | kubectl apply -f -
+          kubectl create secret generic console-auth-secrets \
+            --namespace cobalto \
+            --from-literal=jwt_secret="ci-bench-jwt-secret" \
+            --from-literal=users="$USERS_STRING" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Deploy services
+          kubectl apply -f services/console-auth/kubernetes/
+
+          # Deploy langgraph-agent (with auth disabled for benchmarks)
+          kubectl create deployment langgraph-agent --image=cobalto/langgraph-agent:bench \
+            --namespace cobalto --replicas=1 --port=8000 || true
+          kubectl set env deployment/langgraph-agent \
+            -n cobalto COBALTO_DISABLE_AUTH=true LOG_LEVEL=WARNING || true
+          kubectl expose deployment langgraph-agent \
+            --namespace cobalto --port=8000 --target-port=8000 \
+            --name=langgraph-agent --type=NodePort || true
+
+      - name: Wait for deployments
+        run: |
+          kubectl wait --for=condition=Available deployment/console-auth \
+            --namespace cobalto --timeout=180s || true
+          kubectl wait --for=condition=Available deployment/langgraph-agent \
+            --namespace cobalto --timeout=180s || true
+          kubectl get pods --namespace cobalto
+
+      - name: Port-forward for benchmarks
+        run: |
+          # Forward langgraph-agent and auth service ports
+          kubectl port-forward --namespace cobalto \
+            deployment/langgraph-agent 8000:8000 &
+          kubectl port-forward --namespace cobalto \
+            deployment/console-auth 8001:8000 &
+          sleep 3
+
+          # Verify reachability
+          curl -sf http://localhost:8000/health || {
+            echo "Service not reachable, trying in-cluster..."
+            # Fall back to direct pod IP
+            POD_IP=$(kubectl get pod -n cobalto -l app=langgraph-agent \
+              -o jsonpath='{.items[0].status.podIP}' 2>/dev/null)
+            echo "Pod IP: $POD_IP"
+            export COBALTO_BENCHMARK_URL="http://$POD_IP:8000"
+          }
+
+      - name: Install k6
+        run: |
+          # Install k6 binary for benchmarking
+          curl -L https://github.com/grafana/k6/releases/download/v0.55.0/k6-v0.55.0-linux-amd64.tar.gz \
+            -o /tmp/k6.tar.gz
+          tar -xzf /tmp/k6.tar.gz -C /tmp/
+          sudo mv /tmp/k6-v0.55.0-linux-amd64/k6 /usr/local/bin/
+          rm -rf /tmp/k6.tar.gz /tmp/k6-v0.55.0-linux-amd64
+          k6 version
+
+      - name: Run benchmarks
+        env:
+          COBALTO_BENCHMARK_URL: http://localhost:8000
+          COBALTO_BENCHMARK_REPORT_DIR: reports/benchmark
+        run: |
+          mkdir -p reports/benchmark
+          bash tests/benchmark/run.sh --ci 2>&1 | tee reports/benchmark/run.log
+
+      - name: Restore cached baseline
+        id: cache-baseline
+        uses: actions/cache@v4
+        with:
+          path: tests/benchmark/baselines/
+          key: cobalto-benchmark-baseline-${{ github.sha }}
+          restore-keys: |
+            cobalto-benchmark-baseline-main
+            cobalto-benchmark-baseline-
+
+      - name: Compare with baseline
+        id: baseline-compare
+        env:
+          COBALTO_BENCHMARK_REPORT_DIR: reports/benchmark
+        run: |
+          TIMESTAMP=$(ls reports/benchmark/ | grep -oP '\d{8}T\d{6}' | head -1)
+          if [ -z "$TIMESTAMP" ]; then
+            echo "No benchmark results found"
+            exit 1
+          fi
+          echo "Timestamp: $TIMESTAMP"
+
+          # Find the latest summary file
+          SUMMARY=$(ls -t reports/benchmark/summary-*.json 2>/dev/null | head -1)
+
+          if [ -f "tests/benchmark/baselines/v1.json" ]; then
+            echo "=== Baseline found, comparing ==="
+            python3 tests/benchmark/compare_baseline.py \
+              --baseline tests/benchmark/baselines/v1.json \
+              --results-dir reports/benchmark \
+              --timestamp "$TIMESTAMP" \
+              --summary reports/benchmark/ci-summary.json
+          else
+            echo "=== No baseline found, creating initial baseline ==="
+            python3 tests/benchmark/compare_baseline.py \
+              --results-dir reports/benchmark \
+              --timestamp "$TIMESTAMP" \
+              --update-baseline tests/benchmark/baselines/v1.json \
+              --summary reports/benchmark/ci-summary.json
+          fi
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: reports/benchmark/
+
+      - name: Upload cluster logs on failure
+        if: failure()
+        run: |
+          kubectl describe pods --namespace cobalto > reports/benchmark/pods.txt 2>&1 || true
+          kubectl logs -n cobalto deployment/langgraph-agent \
+            > reports/benchmark/agent-logs.txt 2>&1 || true
+        continue-on-error: true
+
+      - name: Post PR comment with results
+        if: >
+          github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summaryPath = 'reports/benchmark/ci-summary.json';
+            let body = '## 📊 Performance Benchmark Results\n\n';
+
+            if (fs.existsSync(summaryPath)) {
+              const summary = JSON.parse(fs.readFileSync(summaryPath, 'utf8'));
+              if (summary.passed) {
+                body += '✅ **All metrics within baseline thresholds**\n\n';
+              } else {
+                body += '❌ **Performance regressions detected**\n\n';
+              }
+              if (summary.warnings && summary.warnings.length > 0) {
+                body += '### Regressions\n';
+                body += '| Metric | Detail |\n|--------|--------|\n';
+                for (const w of summary.warnings) {
+                  body += `| ⚠ | ${w} |\n`;
+                }
+                body += '\n';
+              }
+              body += '### Test Results\n\n';
+              body += '| Test | Status |\n|------|--------|\n';
+              for (const [test, metrics] of Object.entries(summary.results || {})) {
+                const p95 = metrics.http_req_duration_p95;
+                body += `| ${test} | p95=${p95 ? p95.toFixed(0) + 'ms' : 'N/A'} |\n`;
+              }
+            } else {
+              body += 'No summary file found.\n';
+            }
+
+            body += '\n---\n';
+            body += '_Full results in artifact: benchmark-results_';
+
+            const { context } = require('@actions/github');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: body,
+            });
+
+  # ── Phase 8: K8s Hardening Validation ─────────────────────────────
   k8s-hardening:
     name: K8s Hardening
     runs-on: ubuntu-latest
@@ -426,6 +651,7 @@ jobs:
       - integration-tests
       - injection-fuzzing
       - e2e-tests
+      - performance-benchmark
       - k8s-hardening
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -483,6 +709,16 @@ jobs:
           else
             echo "✗ E2E Tests: FAILED"
             failures="$failures e2e-tests"
+          fi
+
+          # Performance Benchmark (optional — may be skipped)
+          if [ "${{ needs.performance-benchmark.result }}" = "success" ]; then
+            echo "✓ Performance Benchmark: PASSED"
+          elif [ "${{ needs.performance-benchmark.result }}" = "skipped" ]; then
+            echo "○ Performance Benchmark: SKIPPED (label 'perf' required)"
+          else
+            echo "✗ Performance Benchmark: FAILED"
+            failures="$failures performance-benchmark"
           fi
 
           # K8s Hardening
