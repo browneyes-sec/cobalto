@@ -1,0 +1,466 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "datasource",
+      "id": "prometheus",
+      "name": "Prometheus",
+      "version": "1.0.0"
+    }
+  ],
+  "id": null,
+  "title": "Cobalto - Workflow Engine",
+  "tags": ["cobalto", "workflow", "agent"],
+  "editable": true,
+  "timezone": "utc",
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "version": 1,
+  "panels": [
+    {
+      "title": "Alert Processing Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(rate(alerts_processed_total[5m]))",
+          "legendFormat": "All",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(alerts_processed_total{source=\"wazuh\"}[5m]))",
+          "legendFormat": "Wazuh",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(alerts_processed_total{disposition=\"escalated\"}[5m]))",
+          "legendFormat": "Escalated",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "Alert Processing Duration (P95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(alert_processing_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(alert_processing_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P50",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "Active Cases by Severity",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 4, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "sum(active_cases{severity=\"critical\"})",
+          "legendFormat": "Critical",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(active_cases{severity=\"high\"})",
+          "legendFormat": "High",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(active_cases{severity=\"medium\"})",
+          "legendFormat": "Medium",
+          "refId": "C"
+        },
+        {
+          "expr": "sum(active_cases{severity=\"low\"})",
+          "legendFormat": "Low",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "thresholds"
+          }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 8 },
+      "title": "Agent Performance",
+      "type": "row"
+    },
+    {
+      "title": "Agent Execution Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 9 },
+      "targets": [
+        {
+          "expr": "sum(rate(agent_executions_total{status=\"success\"}[5m]))",
+          "legendFormat": "Success",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(agent_executions_total{status=\"failed\"}[5m]))",
+          "legendFormat": "Failed",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "Agent Execution Duration by Type",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 9 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(agent_execution_duration_seconds_bucket{agent_type=\"triage\"}[5m])) by (le))",
+          "legendFormat": "Triage P95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(agent_execution_duration_seconds_bucket{agent_type=\"analysis\"}[5m])) by (le))",
+          "legendFormat": "Analysis P95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(agent_execution_duration_seconds_bucket{agent_type=\"response\"}[5m])) by (le))",
+          "legendFormat": "Response P95",
+          "refId": "C"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(agent_execution_duration_seconds_bucket{agent_type=\"intel\"}[5m])) by (le))",
+          "legendFormat": "Intel P95",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "Agent Executions by Status",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 6, "x": 16, "y": 9 },
+      "targets": [
+        {
+          "expr": "sum(increase(agent_executions_total{status=\"success\"}[1h]))",
+          "legendFormat": "Success",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(increase(agent_executions_total{status=\"failed\"}[1h]))",
+          "legendFormat": "Failed",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(increase(agent_executions_total{status=\"timeout\"}[1h]))",
+          "legendFormat": "Timeout",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 17 },
+      "title": "API & HTTP",
+      "type": "row"
+    },
+    {
+      "title": "HTTP Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 18 },
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[5m]))",
+          "legendFormat": "All",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(http_requests_total{status=~\"5..\"}[5m]))",
+          "legendFormat": "5xx Errors",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "rps",
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "HTTP Latency (P95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 18 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "P99",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "HTTP Error Rate by Endpoint",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 18 },
+      "targets": [
+        {
+          "expr": "topk(10, sum by(endpoint)(rate(http_requests_total{status=~\"5..\"}[5m])) / sum by(endpoint)(rate(http_requests_total[5m])) > 0)",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 26 },
+      "title": "Response Actions & Enrichment",
+      "type": "row"
+    },
+    {
+      "title": "Response Action Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 27 },
+      "targets": [
+        {
+          "expr": "sum(rate(response_actions_total[5m])) by (action_type)",
+          "legendFormat": "{{action_type}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "Response Action Duration",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 6, "y": 27 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(response_action_duration_seconds_bucket[5m])) by (le, action_type))",
+          "legendFormat": "{{action_type}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "Enrichment Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 27 },
+      "targets": [
+        {
+          "expr": "sum(rate(enrichment_requests_total[5m])) by (enricher)",
+          "legendFormat": "{{enricher}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "Enrichment Duration",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 27 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(enrichment_duration_seconds_bucket[5m])) by (le, enricher))",
+          "legendFormat": "{{enricher}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 35 },
+      "title": "External Integrations & MCP",
+      "type": "row"
+    },
+    {
+      "title": "External API Request Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 36 },
+      "targets": [
+        {
+          "expr": "sum(rate(external_api_requests_total[5m])) by (api)",
+          "legendFormat": "{{api}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "rps",
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "External API Latency (P95)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 36 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(external_api_duration_seconds_bucket[5m])) by (le, api))",
+          "legendFormat": "{{api}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "External API Error Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 36 },
+      "targets": [
+        {
+          "expr": "sum(rate(external_api_requests_total{status=~\"5.*\"}[5m])) by (api) / sum(rate(external_api_requests_total[5m])) by (api)",
+          "legendFormat": "{{api}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      }
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 44 },
+      "title": "MITRE ATT&CK",
+      "type": "row"
+    },
+    {
+      "title": "MITRE Queries by Type",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 45 },
+      "targets": [
+        {
+          "expr": "sum(rate(mitre_queries_total[5m])) by (query_type)",
+          "legendFormat": "{{query_type}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "cps",
+          "min": 0
+        }
+      }
+    },
+    {
+      "title": "MITRE Query Success Rate",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 45 },
+      "targets": [
+        {
+          "expr": "sum(rate(mitre_queries_total{result=\"hit\"}[5m])) by (query_type) / sum(rate(mitre_queries_total[5m])) by (query_type)",
+          "legendFormat": "{{query_type}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        }
+      }
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  }
+}

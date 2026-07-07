@@ -1,0 +1,70 @@
+{{/*
+Cobalto Horizontal Pod Autoscaler
+*/}}
+{{- if .Values.langgraph.enabled }}
+{{- if .Values.langgraph.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ .Release.Name }}-langgraph
+  labels:
+    app.kubernetes.io/name: langgraph
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ .Release.Name }}-langgraph
+  minReplicas: {{ .Values.langgraph.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.langgraph.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.langgraph.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 10
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 15
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+      selectPolicy: Max
+{{- end }}
+{{- end }}
+---
+{{/*
+Cobalto Pod Disruption Budget
+*/}}
+{{- if .Values.langgraph.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Release.Name }}-langgraph
+  labels:
+    app.kubernetes.io/name: langgraph
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: langgraph
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

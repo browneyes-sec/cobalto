@@ -1,0 +1,171 @@
+metadata:
+  id: "brute-force-response"
+  name: Brute Force Attack Response
+  description: Automated response to brute force attack alerts
+  version: "1.0.0"
+  author: SOC Team
+  status: active
+  tags:
+    - brute-force
+    - authentication
+    - automated
+  triggers:
+    - "rule_id == 5712"
+    - "rule_id == 5720"
+    - "rule_groups contains authentication_failures"
+  min_cobalto_version: "0.1.0"
+  references:
+    - "https://attack.mitre.org/techniques/T1110/"
+
+steps:
+  - name: Triage
+    description: Initial alert triage and enrichment
+    actions:
+      - name: Parse Alert
+        action_type: enrich
+        parameters:
+          type: parse_alert
+          alert_id: "{{alert_id}}"
+      - name: Enrich Source IP
+        action_type: enrich
+        parameters:
+          type: ip_enrichment
+          ip: "{{source_ip}}"
+      - name: Check Threat Intel
+        action_type: query
+        parameters:
+          type: threat_intel
+          indicator: "{{source_ip}}"
+          indicator_type: ip
+
+  - name: Investigation
+    description: Deep investigation of the brute force attempt
+    parallel: true
+    actions:
+      - name: Query User Activity
+        action_type: query
+        parameters:
+          type: user_activity
+          username: "{{target_user}}"
+          time_range: "1h"
+      - name: Check Login History
+        action_type: query
+        parameters:
+          type: login_history
+          username: "{{target_user}}"
+          source_ip: "{{source_ip}}"
+          time_range: "24h"
+      - name: Correlate with Other Alerts
+        action_type: query
+        parameters:
+          type: alert_correlation
+          indicators:
+            - "{{source_ip}}"
+            - "{{target_user}}"
+          time_range: "1h"
+
+  - name: Assess Severity
+    description: Determine appropriate response level
+    condition: "failed_attempts >= 5"
+    actions:
+      - name: Calculate Risk Score
+        action_type: enrich
+        parameters:
+          type: risk_score
+          factors:
+            - failed_attempts
+            - is_privileged_user
+            - source_reputation
+      - name: Update Alert Severity
+        action_type: custom
+        parameters:
+          type: update_severity
+          alert_id: "{{alert_id}}"
+          severity: "{{calculated_severity}}"
+
+  - name: Automated Response
+    description: Execute automated containment actions
+    condition: "calculated_severity >= 7"
+    actions:
+      - name: Block Source IP
+        action_type: block_ip
+        parameters:
+          ip: "{{source_ip}}"
+          reason: "Brute force attack - {{failed_attempts}} failed attempts"
+          duration: "24h"
+        requires_approval: false
+        timeout_seconds: 30
+      - name: Lock User Account
+        action_type: disable_user
+        parameters:
+          username: "{{target_user}}"
+          reason: "Suspicious login activity detected"
+          lock_duration: "1h"
+        requires_approval: false
+        timeout_seconds: 30
+      - name: Collect Forensic Evidence
+        action_type: collect_evidence
+        parameters:
+          type: login_logs
+          host: "{{target_host}}"
+          time_range: "1h"
+          retention_days: 30
+
+  - name: Notification
+    description: Notify relevant teams
+    actions:
+      - name: Alert SOC Channel
+        action_type: notify
+        parameters:
+          channel: "#soc-alerts"
+          message: |
+            *Brute Force Attack Detected*
+            Alert ID: {{alert_id}}
+            Source: {{source_ip}}
+            Target: {{target_user}}@{{target_host}}
+            Failed Attempts: {{failed_attempts}}
+            Severity: {{calculated_severity}}
+            Status: Automated response initiated
+          priority: high
+      - name: Create Ticket
+        action_type: custom
+        parameters:
+          type: create_ticket
+          title: "Brute Force Attack - {{source_ip}} → {{target_user}}"
+          description: "Automated detection of brute force attack"
+          assignee: "{{assignee}}"
+          priority: "{{ticket_priority}}"
+
+  - name: Documentation
+    description: Document the incident
+    actions:
+      - name: Create Case
+        action_type: custom
+        parameters:
+          type: create_case
+          title: "BRF-{{alert_id}}"
+          description: "Brute force attack from {{source_ip}}"
+          severity: "{{calculated_severity}}"
+          tags:
+            - brute-force
+            - automated-response
+            - "{{source_ip}}"
+      - name: Add IOCs to Intel
+        action_type: custom
+        parameters:
+          type: add_iocs
+          iocs:
+            - type: ip
+              value: "{{source_ip}}"
+              tags:
+                - brute-force
+                - malicious
+              confidence: 85
+              tlp: amber
+
+variables:
+  auto_block_threshold: 5
+  lock_threshold: 10
+  notify_channel: "#soc-alerts"
+  retention_days: 30
+  ticket_priority: high

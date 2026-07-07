@@ -1,0 +1,803 @@
+openapi: 3.1.0
+info:
+  title: Cobalto LangGraph Agent Service API
+  description: Multi-agent AI orchestration for threat detection and response
+  version: 0.1.0
+  contact:
+    name: Cobalto Team
+    email: team@cobalto.io
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8001
+    description: Local development
+  - url: https://api.cobalto.io
+    description: Production
+
+tags:
+  - name: Health
+    description: Health and readiness checks
+  - name: Agents
+    description: Agent execution endpoints
+  - name: Webhooks
+    description: Alert ingestion webhook endpoints
+  - name: MCP
+    description: Model Context Protocol endpoints
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Returns service health status with component checks
+      operationId: getHealth
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is unhealthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /metrics:
+    get:
+      tags: [Health]
+      summary: Prometheus metrics
+      description: Returns Prometheus-format metrics
+      operationId: getMetrics
+      responses:
+        '200':
+          description: Metrics in Prometheus format
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /agent/analyze:
+    post:
+      tags: [Agents]
+      summary: Analyze alert with supervisor
+      description: Routes alert to appropriate agent based on severity and context
+      operationId: analyzeAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Analysis complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeResponse'
+        '500':
+          description: Analysis failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhook/wazuh:
+    post:
+      tags: [Webhooks]
+      summary: Wazuh alert webhook
+      description: Receives alerts from Wazuh via n8n and routes through supervisor
+      operationId: wazuhWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WazuhWebhookPayload'
+      responses:
+        '200':
+          description: Alert processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+        '500':
+          description: Processing failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhook/generic:
+    post:
+      tags: [Webhooks]
+      summary: Generic webhook
+      description: Generic webhook for other SIEM/EDR integrations
+      operationId: genericWebhook
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Any JSON payload
+      responses:
+        '200':
+          description: Alert processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+        '500':
+          description: Processing failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /webhook/n8n:
+    post:
+      tags: [Webhooks]
+      summary: n8n callback
+      description: Callback endpoint for n8n workflow triggers
+      operationId: n8nCallback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/N8NCallbackPayload'
+      responses:
+        '200':
+          description: Action triggered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookResponse'
+        '400':
+          description: Unknown action
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Processing failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agent/triage:
+    post:
+      tags: [Agents]
+      summary: Triage alert
+      description: Initial alert assessment, IOC extraction, severity determination
+      operationId: triageAlert
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Triage complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TriageResponse'
+        '500':
+          description: Triage failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agent/analyze-deep:
+    post:
+      tags: [Agents]
+      summary: Deep analysis
+      description: Deep investigation with MITRE ATT&CK mapping and risk assessment
+      operationId: deepAnalysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Analysis complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalysisResponse'
+        '500':
+          description: Analysis failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agent/threat-intel:
+    post:
+      tags: [Agents]
+      summary: Threat intelligence lookup
+      description: Correlate with threat intel and identify threat actors
+      operationId: threatIntelLookup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Intel lookup complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreatIntelResponse'
+        '500':
+          description: Lookup failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agent/response:
+    post:
+      tags: [Agents]
+      summary: Generate response actions
+      description: Create containment and remediation plan
+      operationId: generateResponse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Response plan generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponsePlanResponse'
+        '500':
+          description: Generation failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /agent/run:
+    post:
+      tags: [Agents]
+      summary: Run specific agent
+      description: Execute a specific agent type with input data
+      operationId: runAgent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgentRunRequest'
+      responses:
+        '200':
+          description: Agent execution complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentRunResponse'
+        '500':
+          description: Execution failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /mcp:
+    get:
+      tags: [MCP]
+      summary: MCP server information
+      description: Returns MCP server capabilities and version info
+      operationId: getMcpInfo
+      responses:
+        '200':
+          description: MCP server info
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /mcp/sse:
+    get:
+      tags: [MCP]
+      summary: MCP SSE stream
+      description: Server-Sent Events stream for MCP protocol
+      operationId: mcpSse
+      responses:
+        '200':
+          description: SSE event stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+
+  /mcp/messages:
+    post:
+      tags: [MCP]
+      summary: MCP JSON-RPC message
+      description: Send JSON-RPC messages to MCP server
+      operationId: mcpMessages
+      parameters:
+        - name: session_id
+          in: query
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: JSON-RPC response
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /mcp/tools:
+    get:
+      tags: [MCP]
+      summary: List MCP tools
+      description: List all available MCP tools
+      operationId: listMcpTools
+      responses:
+        '200':
+          description: List of tools
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tools:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MCPTool'
+
+  /mcp/resources:
+    get:
+      tags: [MCP]
+      summary: List MCP resources
+      description: List all available MCP resources
+      operationId: listMcpResources
+      responses:
+        '200':
+          description: List of resources
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resources:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MCPResource'
+                  templates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MCPResource'
+
+  /mcp/prompts:
+    get:
+      tags: [MCP]
+      summary: List MCP prompts
+      description: List all available MCP prompts
+      operationId: listMcpPrompts
+      responses:
+        '200':
+          description: List of prompts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  prompts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MCPPrompt'
+
+  /mcp/tools/{tool_name}/call:
+    post:
+      tags: [MCP]
+      summary: Call MCP tool
+      description: Call an MCP tool directly via HTTP
+      operationId: callMcpTool
+      parameters:
+        - name: tool_name
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                arguments:
+                  type: object
+      responses:
+        '200':
+          description: Tool execution result
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /mcp/health:
+    get:
+      tags: [MCP]
+      summary: MCP health check
+      description: MCP server health with tool/resource counts
+      operationId: mcpHealth
+      responses:
+        '200':
+          description: MCP health status
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        version:
+          type: string
+        uptime_seconds:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+        components:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComponentHealth'
+
+    ComponentHealth:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        message:
+          type: string
+        latency_ms:
+          type: number
+
+    AnalyzeRequest:
+      type: object
+      required: [alert_id, alert]
+      properties:
+        alert_id:
+          type: string
+        alert:
+          type: object
+          description: Raw alert data
+        context:
+          type: object
+          description: Additional context
+
+    AnalyzeResponse:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        status:
+          type: string
+        routing:
+          type: object
+          properties:
+            next_agent:
+              type: string
+            reason:
+              type: string
+            confidence:
+              type: number
+        duration_ms:
+          type: number
+
+    TriageResponse:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        status:
+          type: string
+        result:
+          type: object
+          properties:
+            alert_type:
+              type: string
+            severity:
+              type: string
+            indicators:
+              type: array
+              items:
+                type: object
+            investigation_steps:
+              type: array
+              items:
+                type: string
+        duration_ms:
+          type: number
+
+    AnalysisResponse:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        status:
+          type: string
+        result:
+          type: object
+          properties:
+            attack_narrative:
+              type: string
+            mitre_mapping:
+              type: object
+            risk_assessment:
+              type: object
+            recommendations:
+              type: array
+              items:
+                type: string
+        duration_ms:
+          type: number
+
+    ThreatIntelResponse:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        status:
+          type: string
+        result:
+          type: object
+          properties:
+            threat_intel_results:
+              type: array
+              items:
+                type: object
+            threat_actors:
+              type: array
+              items:
+                type: object
+            threat_level:
+              type: string
+            recommendations:
+              type: array
+              items:
+                type: string
+        duration_ms:
+          type: number
+
+    ResponsePlanResponse:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        status:
+          type: string
+        result:
+          type: object
+          properties:
+            containment_actions:
+              type: array
+              items:
+                type: object
+            remediation_actions:
+              type: array
+              items:
+                type: object
+            approval_required:
+              type: array
+              items:
+                type: string
+            rollback_plan:
+              type: array
+              items:
+                type: object
+            priority:
+              type: string
+        duration_ms:
+          type: number
+
+    AgentRunRequest:
+      type: object
+      required: [agent_type, input_data]
+      properties:
+        agent_type:
+          type: string
+          enum: [triage, analysis, threat_intel, response, threat_hunt, documentation]
+        input_data:
+          type: object
+        context:
+          type: object
+
+    AgentRunResponse:
+      type: object
+      properties:
+        agent_id:
+          type: string
+        agent_type:
+          type: string
+        status:
+          type: string
+        output:
+          type: object
+        duration_ms:
+          type: number
+
+    ErrorResponse:
+      type: object
+      properties:
+        detail:
+          type: string
+        error_code:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    WazuhWebhookPayload:
+      type: object
+      required: [alert_id, alert]
+      properties:
+        alert_id:
+          type: string
+          description: Unique alert identifier
+        alert:
+          $ref: '#/components/schemas/WazuhAlert'
+        tenant_id:
+          type: string
+          description: Tenant identifier
+        source:
+          type: string
+          default: wazuh
+        metadata:
+          type: object
+          description: Additional metadata
+
+    WazuhAlert:
+      type: object
+      properties:
+        rule_id:
+          type: string
+        rule_level:
+          type: integer
+        rule_description:
+          type: string
+        rule_groups:
+          type: string
+        rule_mitre:
+          type: object
+          properties:
+            technique:
+              type: string
+            tactic:
+              type: string
+        agent_id:
+          type: string
+        agent_name:
+          type: string
+        srcip:
+          type: string
+        dstip:
+          type: string
+        srcport:
+          type: integer
+        dstport:
+          type: integer
+        protocol:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        full_log:
+          type: string
+        location:
+          type: string
+
+    WebhookResponse:
+      type: object
+      properties:
+        alert_id:
+          type: string
+        status:
+          type: string
+          enum: [processed, error]
+        routing:
+          type: object
+        duration_ms:
+          type: number
+        error:
+          type: string
+
+    N8NCallbackPayload:
+      type: object
+      required: [action, data]
+      properties:
+        action:
+          type: string
+          description: Action to trigger
+          enum: [triage]
+        data:
+          type: object
+          properties:
+            alert_id:
+              type: string
+            alert:
+              type: object
+            context:
+              type: object
+
+    MCPTool:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        inputSchema:
+          type: object
+
+    MCPResource:
+      type: object
+      properties:
+        uri:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        mimeType:
+          type: string
+
+    MCPPrompt:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        arguments:
+          type: array
+          items:
+            type: object
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - bearerAuth: []
