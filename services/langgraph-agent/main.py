@@ -9,7 +9,7 @@ Endpoints:
   POST /agent/analyze     - Analyze a security alert through the agent pipeline
   GET  /health            - Liveness probe
   GET  /ready             - Readiness probe
-  GET  /metrics           - Prometheus metrics
+  GET  /metrics           - Prometheus metrics (MetricsRegistry)
   GET  /graph/visualize   - Agent graph visualization (Mermaid)
 """
 
@@ -28,6 +28,7 @@ from middleware.auth import AuthMiddleware
 from middleware.audit import AuditLogger
 from middleware.rate_limiter import RateLimiter
 from middleware.validator import InputValidator
+from middleware.metrics import metrics
 from config.settings import settings
 
 # ── Application Setup ───────────────────────────────────────────────
@@ -64,6 +65,20 @@ elif not settings.COBALTO_DISABLE_AUTH:
     logger.warning(
         "No COBALTO_API_KEY configured. Authentication is DISABLED. "
         "Set COBALTO_API_KEY for production."
+    )
+
+
+# ── Prometheus Metrics Server ──────────────────────────────────────
+
+try:
+    from prometheus_client import start_http_server as _start_metrics_server
+
+    _start_metrics_server(8080)
+    logger.info("Prometheus metrics server started on port 8080")
+except Exception:
+    logger.warning(
+        "Could not start Prometheus metrics server on port 8080. "
+        "Metrics are still available via GET /metrics on the API port."
     )
 
 
@@ -162,6 +177,7 @@ async def analyze_alert(payload: AlertPayload):
     )
 
     # ── Build Initial State ──
+    start = time.monotonic()
     initial_state = {
         "alert": dict(payload),
         "severity": "",
@@ -185,6 +201,7 @@ async def analyze_alert(payload: AlertPayload):
         audit_logger.log_agent_start("triage_agent", payload.get("alert_id", "unknown"))
 
         final_state = await agent.ainvoke(initial_state, config)
+        elapsed = time.monotonic() - start
 
         # Log agent completion
         audit_logger.log_agent_complete(
@@ -198,9 +215,27 @@ async def analyze_alert(payload: AlertPayload):
             },
         )
 
+        # Record Prometheus metrics
+        severity = final_state.get("severity", "unknown")
+        metrics.agent_investigation_started()
+        metrics.agent_execution("system", elapsed, status="success")
+        metrics.alert_received(
+            source=payload.get("source", "wazuh"),
+            severity=severity,
+        )
+
+        # Estimate LLM token usage (rough: ~4 chars per token)
+        total_text = " ".join(final_state.get("messages", []))
+        estimated_tokens = len(total_text) // 4
+        if estimated_tokens > 0:
+            metrics.llm_tokens_consumed("system", estimated_tokens)
+
     except HTTPException:
         raise
     except Exception as e:
+        elapsed = time.monotonic() - start
+        metrics.agent_execution("system", elapsed, status="error")
+        metrics.agent_error("system", error_type="exception")
         audit_logger.log_error(
             agent_id="orchestrator",
             error="agent_pipeline_failed",
@@ -235,33 +270,23 @@ async def readiness_check():
 
 
 @app.get("/metrics")
-async def metrics():
-    """
-    Prometheus metrics endpoint.
-    Returns basic application metrics in Prometheus text format.
-    """
-    from prometheus_client import generate_latest, REGISTRY, Counter, Histogram
+async def metrics_endpoint():
+    """Prometheus metrics endpoint — consumed by Grafana dashboards.
 
-    # Ensure metrics are registered
-    if not hasattr(app, "_metrics_registered"):
-        REQUEST_COUNT = Counter(
-            "cobalto_requests_total",
-            "Total request count",
-            ["method", "endpoint", "status"],
-        )
-        REQUEST_LATENCY = Histogram(
-            "cobalto_request_latency_seconds",
-            "Request latency in seconds",
-            ["endpoint"],
-            buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0),
-        )
-        app.state.REQUEST_COUNT = REQUEST_COUNT
-        app.state.REQUEST_LATENCY = REQUEST_LATENCY
-        app._metrics_registered = True
-
+    Uses the MetricsRegistry singleton which exposes:
+    - cobalto_agent_latency_seconds
+    - cobalto_agent_operations_total
+    - cobalto_agent_errors_total
+    - cobalto_agent_investigations_total
+    - cobalto_tool_calls_total
+    - cobalto_tool_latency_seconds
+    - cobalto_tool_errors_total
+    - cobalto_llm_tokens_total
+    - cobalto_alerts_received_total
+    """
     return Response(
-        content=generate_latest(REGISTRY).decode("utf-8"),
-        media_type="text/plain; version=0.0.4",
+        content=metrics.generate(),
+        media_type=metrics.content_type,
     )
 
 

@@ -190,18 +190,53 @@ class AuditLogger:
             severity="INFO",
         )
 
-    def log_tool_call(self, agent_id: str, tool_name: str, args: dict, result: Any) -> dict:
-        """Log an external tool invocation."""
-        return self.log_action(
+    def log_tool_call(
+        self,
+        agent_id: str,
+        tool_name: str,
+        args: dict,
+        result: Any,
+        status: str = "success",
+        duration_ms: float | None = None,
+    ) -> dict:
+        """Log an external tool invocation and record Prometheus metrics.
+
+        Parameters
+        ----------
+        status:
+            One of ``"success"``, ``"error"``, or ``"unknown"``.
+            Determines the Prometheus ``status`` label value.
+        duration_ms:
+            Tool execution duration in milliseconds. If provided, the
+            ``cobalto_tool_latency_seconds`` histogram is updated.
+        """
+        entry = self.log_action(
             agent_id=agent_id,
             action="tool_called",
             details={
                 "tool_name": tool_name,
                 "args": args,
                 "result_preview": str(result)[:300],
+                "status": status,
+                "duration_ms": round(duration_ms, 2) if duration_ms is not None else None,
             },
             severity="INFO",
         )
+        # Record Prometheus metrics in-band with the audit log
+        try:
+            from middleware.metrics import metrics as _metrics
+
+            _metrics.tool_call(
+                tool_name=tool_name,
+                duration_seconds=(duration_ms / 1000.0) if duration_ms is not None else 0.0,
+                status=status,
+            )
+        except Exception:
+            self.logger.warning(
+                "Failed to record Prometheus metrics for tool call",
+                extra={"tool_name": tool_name},
+            )
+        return entry
 
     def log_error(self, agent_id: str, error: str, context: dict | None = None) -> dict:
         """Log an error with context."""
