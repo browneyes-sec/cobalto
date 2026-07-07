@@ -1,0 +1,22 @@
+{
+  "artifact_id": "9d76fa46-3286-43a6-98d9-596aea3a237c",
+  "control_id": "RS-05",
+  "domain": "resilience",
+  "procedure": "chaos-experiments",
+  "timestamp": "2026-07-07T17:17:46Z",
+  "status": "skipped",
+  "result": {
+    "metric_name": "dependency_restoration",
+    "observed_value": "none",
+    "threshold": "circuit_breaker",
+    "passed": false,
+    "details": "Requires circuit breaker implementation to verify full recovery after dependency restore"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "chaos_experiment",
+    "signature": "a73652dd2586aa45576b093e37a55e1be675c7f4ed4245f3ae0bcd2bba6a85b7"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "artifact_id": "1f4b371b-22fe-48fc-ad69-ca360d825e34",
+  "control_id": "CM-05",
+  "domain": "compliance",
+  "procedure": "compliance-evidence-test.sh",
+  "timestamp": "2026-07-07T17:15:13Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "soc2_logical_access",
+    "observed_value": 1,
+    "threshold": "1",
+    "passed": true,
+    "details": "Auth middleware enforces API key validation"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "evidence_collection",
+    "signature": "76cb9ced5f31bd7c55700b3f1427df3d458cbb598224746bdd1d281a83b05f56"
+  }
+}

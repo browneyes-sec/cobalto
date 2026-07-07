@@ -1,0 +1,22 @@
+{
+  "artifact_id": "151f657f-0a2d-49f4-9ca5-95937714a472",
+  "control_id": "RS-02",
+  "domain": "resilience",
+  "procedure": "chaos-experiments",
+  "timestamp": "2026-07-07T17:17:46Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "pod_failure_data_loss",
+    "observed_value": "memory",
+    "threshold": "persistent",
+    "passed": false,
+    "details": "In-memory investigation counters reset on restart (expected). Persistent state requires PostgreSQL-backed checkpointing."
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "chaos_experiment",
+    "signature": "367ad96ed83c9bfe7663b204236084d67fd11e93fe19951a136d18fe54c11b3a"
+  }
+}

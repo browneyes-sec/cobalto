@@ -1,0 +1,22 @@
+{
+  "artifact_id": "ef21c66d-7129-4cd8-8909-25bea25d3204",
+  "control_id": "RS-01",
+  "domain": "resilience",
+  "procedure": "chaos-experiments.sh",
+  "timestamp": "2026-07-07T17:16:55Z",
+  "status": "fail",
+  "result": {
+    "metric_name": "pod_failure_restart",
+    "observed_value": 1,
+    "threshold": 1,
+    "passed": false,
+    "details": "Agent did not recover: health=True, alert=False"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "chaos_experiment",
+    "signature": "f3bc917c4d0157ba6005115c69f61440fb820501290a945d50963db4892481c1"
+  }
+}

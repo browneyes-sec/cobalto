@@ -1,0 +1,22 @@
+{
+  "artifact_id": "0c6c868d-83ca-4665-a789-e545a44b975b",
+  "control_id": "CM-02",
+  "domain": "compliance",
+  "procedure": "compliance-evidence-test.sh",
+  "timestamp": "2026-07-07T17:15:13Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "nist_rsco_communication",
+    "observed_value": 1,
+    "threshold": "1",
+    "passed": true,
+    "details": "Incident report contains escalation-relevant details"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "evidence_collection",
+    "signature": "d1f9f9ef9f1c677f4c28f7b9d594ce780bff91a0d5710674f0d934f48b38de34"
+  }
+}

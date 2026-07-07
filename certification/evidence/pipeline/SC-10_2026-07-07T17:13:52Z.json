@@ -1,0 +1,22 @@
+{
+  "artifact_id": "2b29bf9f-5ca4-4d1b-8929-446a0fb304ef",
+  "control_id": "SC-10",
+  "domain": "security",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:13:52Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "injection_guard",
+    "observed_value": "200",
+    "threshold": "4xx",
+    "passed": false,
+    "details": "Prompt injection payload returned 200 (not blocked). Guard may need additional patterns or XML wrapping enforcement."
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "e76d16788ba073eb211cabe946ce3a96eb55e096a20925759017a6a77a975de6"
+  }
+}

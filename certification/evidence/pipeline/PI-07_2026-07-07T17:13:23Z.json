@@ -1,0 +1,22 @@
+{
+  "artifact_id": "5b72717e-d777-4d82-a556-3beb14afc35f",
+  "control_id": "PI-07",
+  "domain": "pipeline-integrity",
+  "procedure": "pipeline-integrity-test.sh",
+  "timestamp": "2026-07-07T17:13:23Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "webhook_endpoint",
+    "observed_value": "INC-BD4745BA",
+    "threshold": "non-empty",
+    "passed": true,
+    "details": "Webhook produces incident reports"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "3e9417d2b1a28d05d6f92ae1f25f66722d434a3b7361700b043116b3e6e1c686"
+  }
+}

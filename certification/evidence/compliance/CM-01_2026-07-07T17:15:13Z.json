@@ -1,0 +1,22 @@
+{
+  "artifact_id": "5ad65eff-c78b-46ac-8fdf-31fd204ddc91",
+  "control_id": "CM-01",
+  "domain": "compliance",
+  "procedure": "compliance-evidence-test.sh",
+  "timestamp": "2026-07-07T17:15:13Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "nist_deae_anomaly_detection",
+    "observed_value": 1,
+    "threshold": "1",
+    "passed": true,
+    "details": "Alert events logged with severity, source IP, rule ID"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "evidence_collection",
+    "signature": "2d17eb16a0cb5ad4f384509836e313c17615e2f3006e695d746c7799002c1849"
+  }
+}

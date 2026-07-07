@@ -1,0 +1,22 @@
+{
+  "artifact_id": "7b92497f-2b23-4526-a0fb-86cdcfc809fb",
+  "control_id": "CM-06",
+  "domain": "compliance",
+  "procedure": "compliance-evidence-test.sh",
+  "timestamp": "2026-07-07T17:15:13Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "iso27001_logging_monitoring",
+    "observed_value": 31,
+    "threshold": ">= 1",
+    "passed": true,
+    "details": "Audit log entries are HMAC-signed and tamper-evident"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "evidence_collection",
+    "signature": "c8fe9063465298ffc9c619e532ab728812c5986581b51debdd00253234195170"
+  }
+}

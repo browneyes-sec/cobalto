@@ -1,0 +1,22 @@
+{
+  "artifact_id": "d36d04e1-1c20-44bd-acc9-5ada49073d5c",
+  "control_id": "PI-03",
+  "domain": "pipeline-integrity",
+  "procedure": "pipeline-integrity-test.sh",
+  "timestamp": "2026-07-07T17:13:23Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "severity_classification",
+    "observed_value": "LOW",
+    "threshold": "non-empty",
+    "passed": true,
+    "details": "Triage produced severity=LOW"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "d17fee77867566cc3cf2ee3a7b65b028524f81de82a3bbd452512bc6a31d3628"
+  }
+}

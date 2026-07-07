@@ -1,0 +1,22 @@
+{
+  "artifact_id": "ab780aae-8580-456b-afd0-ffbe73032300",
+  "control_id": "SC-10",
+  "domain": "security",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:13:30Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "injection_guard",
+    "observed_value": 200,
+    "threshold": "4xx",
+    "passed": false,
+    "details": "Injection payload not blocked"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "7574518e985832739f37f2645eabe77192e596c0e1611834ffe20b47d452f05e"
+  }
+}

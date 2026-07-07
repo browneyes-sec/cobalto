@@ -1,0 +1,22 @@
+{
+  "artifact_id": "65126c40-38c6-4609-a188-cdef4b88e8bc",
+  "control_id": "SC-08",
+  "domain": "security",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:13:52Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "audit_tamper_detection",
+    "observed_value": 0,
+    "threshold": 1,
+    "passed": false,
+    "details": "Tamper detection check: valid=False, detected=False"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "68297a23a6a5a68b1930e81de41b5dcb1c1e6a4649c53ea53f6b2df55a825ea4"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "artifact_id": "49fdfa41-58e9-4326-9dc0-ac0edcb27bd2",
+  "control_id": "OB-02",
+  "domain": "observability",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:13:52Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "cobalto_metrics_all_present",
+    "observed_value": 9,
+    "threshold": 9,
+    "passed": true,
+    "details": "All 9 cobalto_ metric families present after alert processing"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "b3f8cd5d9d49f73289ffc00d62c72754cf691e518f6fca07edaef57e8e37fcd2"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "artifact_id": "4de191e9-9eec-40a2-ab24-208adb7ad5f0",
+  "control_id": "SC-07",
+  "domain": "security",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:14:36Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "audit_hmac_signing",
+    "observed_value": 27,
+    "threshold": ">= 1",
+    "passed": true,
+    "details": "HMAC-signed audit entries confirmed: 27"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "log_parse",
+    "signature": "d04c79f455895306730fcd5fc79219184da9e2b44978b4a9da374a4411b71b24"
+  }
+}

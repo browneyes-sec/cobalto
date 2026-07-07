@@ -1,0 +1,22 @@
+{
+  "artifact_id": "32373fb1-75ff-4896-b1bb-012ba5f7bf45",
+  "control_id": "RS-03",
+  "domain": "resilience",
+  "procedure": "chaos-experiments",
+  "timestamp": "2026-07-07T17:17:46Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "network_partition_recovery",
+    "observed_value": 1,
+    "threshold": 1,
+    "passed": true,
+    "details": "Network partition: service unreachable during isolation, full recovery after reconnect"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "chaos_experiment",
+    "signature": "390682d1025cb660094f84030c8eb21d5e5a488adc91751b19a69796d63d8c64"
+  }
+}

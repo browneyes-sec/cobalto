@@ -1,0 +1,22 @@
+{
+  "artifact_id": "46b0737b-c8f9-4e0e-91cd-b0c133ab23fd",
+  "control_id": "SC-07",
+  "domain": "security",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:13:30Z",
+  "status": "fail",
+  "result": {
+    "metric_name": "audit_hmac_signing",
+    "observed_value": 0,
+    "threshold": "1",
+    "passed": false,
+    "details": "No HMAC signatures in audit log"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "25d99450b931924ccfc3c5e999699e995447df227d7961c40f5c1b03edd79dab"
+  }
+}

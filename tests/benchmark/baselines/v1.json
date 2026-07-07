@@ -1,54 +1,19 @@
 {
-  "version": 1,
-  "metadata": {
-    "comment": "Initial baseline — established during Phase 3-3 benchmarking setup",
-    "established": "2026-07-06",
-    "environment": "CI-kind (single-node, no GPU, CPU-only inference)",
-    "langgraph_agent_version": "1.0.0",
-    "k6_version": "0.55.x"
-  },
-  "thresholds": {
-    "alert_ingestion": {
-      "description": "POST /agent/analyze — LOW severity, sustained 20 VUs",
-      "p50_ms": 1200,
-      "p95_ms": 4500,
-      "p99_ms": 9000,
-      "avg_ms": 1800,
-      "max_ms": 12000,
-      "max_failure_rate": 0.01,
-      "regression_tolerance_pct": 20
+  "version": "v1",
+  "generated_at": "2026-07-07T17:12:59Z",
+  "environment": "dev",
+  "runner": "pabl0wsl",
+  "results": {
+    "agent_latency_ms": {
+      "p50": 92.93,
+      "p95": 273.62,
+      "p99": 273.62,
+      "count": 3,
+      "unit": "ms"
     },
-    "agent_latency": {
-      "description": "POST /agent/analyze — per-severity latency, 5 VUs steady",
-      "p50_low_ms": 1000,
-      "p95_low_ms": 4000,
-      "p50_medium_ms": 1500,
-      "p95_medium_ms": 7000,
-      "max_failure_rate": 0.01,
-      "regression_tolerance_pct": 20
-    },
-    "auth_burst": {
-      "description": "POST /api/auth/login — burst up to 50 concurrent logins",
-      "p50_ms": 80,
-      "p95_ms": 300,
-      "p99_ms": 600,
-      "avg_ms": 120,
-      "max_failure_rate": 0.05,
-      "regression_tolerance_pct": 25
-    },
-    "health_check": {
-      "description": "GET /health, /ready, /metrics — up to 100 concurrent",
-      "p95_health_ms": 30,
-      "p95_ready_ms": 30,
-      "p95_metrics_ms": 100,
-      "p99_health_ms": 80,
-      "max_failure_rate": 0.001,
-      "regression_tolerance_pct": 30
-    }
-  },
-  "alerts": {
-    "regression_warning_pct": 15,
-    "regression_fail_pct": 20,
-    "max_consecutive_regressions": 3
+    "memory_mb": 86,
+    "http_latency_ms": 5.923,
+    "alerts_ingested": 3,
+    "metrics_families": 9
   }
 }

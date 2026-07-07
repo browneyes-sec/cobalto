@@ -1,91 +1,136 @@
-# Control-to-Evidence Master Matrix
+# Control-to-Evidence Matrix
 
-> Complete mapping of all certification controls to their evidence artifacts.  
-> This is the single source of truth for auditor evidence requests.
+**Generated**: 2026-07-07T17:18:40Z
+**Runner**: pabl0wsl
+**Environment**: dev
 
-## Conventions
+## Status Legend
+- ✅ Pass — control verified, evidence artifact generated
+- ❌ Fail — control failed, remediation required
+- ⚠️ Warn — passed with caveats or partial coverage
+- ⏭ Skipped — dependency not met or infrastructure unavailable
+- ⏳ Planned — not yet executed
 
-- **Control ID format:** `{Domain}-{NN}` where Domain = PI (Pipeline Integrity), SP (Security Posture), RS (Resilience), PF (Performance), CM (Compliance), DG (Data Governance)
-- **Status:** ✅ Certified, ⏳ Pending, ❌ Not Certified
-- **Evidence path:** Relative to `certification/evidence/`
+---
 
-## Master Matrix
+## Performance Domain (PE-01 through PE-12)
 
-| Control ID | Domain | Description | Status | Evidence Artifact | Test Procedure | Frequency |
-|-----------|--------|-------------|--------|-------------------|---------------|-----------|
-| PI-01 | Pipeline Integrity | Input validation rejects malformed payloads | ✅ | `pipeline/validation-logs.json` | `security-controls-test.sh` | Every commit |
-| PI-02 | Pipeline Integrity | Schema lock prevents extra fields | ✅ | `pipeline/schema-enforcement.json` | `security-controls-test.sh` | Every commit |
-| PI-03 | Pipeline Integrity | Alert deduplication by alert_id | ⏳ | `pipeline/dedup-logs.json` | `pipeline-integrity-test.sh` | Pending |
-| PI-04 | Pipeline Integrity | HMAC receipt for every tool call | ✅ | `pipeline/hmac-receipts.json` | `pipeline-integrity-test.sh` | Every commit |
-| PI-05 | Pipeline Integrity | State machine preserves original alert | ✅ | `pipeline/state-integrity.json` | `pipeline-integrity-test.sh` | Every commit |
-| PI-06 | Pipeline Integrity | Pipeline completes on known pathways | ✅ | `pipeline/pipeline-completions.json` | `pipeline-integrity-test.sh` | Every commit |
-| PI-07 | Pipeline Integrity | Error paths produce logged failures | ✅ | `pipeline/error-logs.json` | `pipeline-integrity-test.sh` | Every commit |
-| PI-08 | Pipeline Integrity | Alert ordering preserved within session | ⏳ | `pipeline/ordering-logs.json` | Pending | Pending |
-| SP-01 | Security Posture | API key auth (HMAC constant-time) | ✅ | `security/auth-middleware.json` | `security-controls-test.sh` | Every commit |
-| SP-02 | Security Posture | No-keys warning mode | ✅ | `security/no-keys-warning.json` | Manual | Per deployment |
-| SP-03 | Security Posture | Console JWT auth (login/verify/refresh/logout) | ✅ | `security/console-auth.json` | `security-controls-test.sh` | Every commit |
-| SP-04 | Security Posture | Bcrypt password hashing | ✅ | `security/bcrypt-config.json` | `security-controls-test.sh` | Per deploy |
-| SP-05 | Security Posture | Token rotation on refresh | ✅ | `security/token-rotation.json` | `security-controls-test.sh` | Every commit |
-| SP-06 | Security Posture | Rate limiting (token bucket) | ✅ | `security/rate-limiter.json` | `security-controls-test.sh` | Every commit |
-| SP-07 | Security Posture | Audit log HMAC signing | ✅ | `security/audit-log.json` | `security-controls-test.sh` | Every commit |
-| SP-08 | Security Posture | Input validation schema lock | ✅ | `security/schema-lock.json` | `security-controls-test.sh` | Every commit |
-| SP-09 | Security Posture | Prompt injection detection | ✅ | `security/injection-guard.json` | `security-controls-test.sh` | Every commit |
-| SP-10 | Security Posture | Vault dynamic secret rotation | ⏳ | `security/vault-rotation.json` | Manual | Weekly |
-| SP-11 | Security Posture | Container securityContext enforcement | ✅ | `security/security-context.json` | CI k8s-hardening | Every commit |
-| SP-12 | Security Posture | Network policy isolation | ✅ | `security/network-policies.json` | CI k8s-hardening | Every commit |
-| RS-01 | Resilience | PodDisruptionBudget | ✅ | `resilience/pdb-config.json` | `resilience-test.sh` | Every commit |
-| RS-02 | Resilience | Liveness probes | ✅ | `resilience/liveness-probes.json` | `resilience-test.sh` | Every commit |
-| RS-03 | Resilience | Readiness probes | ✅ | `resilience/readiness-probes.json` | `resilience-test.sh` | Every commit |
-| RS-04 | Resilience | Resource limits | ✅ | `resilience/resource-limits.json` | `resilience-test.sh` | Every commit |
-| RS-05 | Resilience | Graceful dependency degradation | ✅ | `resilience/degradation-test.json` | `resilience-test.sh` | Weekly |
-| RS-06 | Resilience | Retry logic for external API calls | ✅ | `resilience/retry-logs.json` | `resilience-test.sh` | Weekly |
-| RS-07 | Resilience | Circuit breaker for cascading failures | ⏳ | `resilience/circuit-breaker.json` | Pending | Pending |
-| RS-08 | Resilience | Pod anti-affinity | ✅ | `resilience/anti-affinity.json` | `resilience-test.sh` | Per deploy |
-| RS-09 | Resilience | Graceful shutdown | ⏳ | `resilience/graceful-shutdown.json` | Pending | Pending |
-| PF-01 | Performance | Alert ingestion latency SLA | ✅ | `performance/alert-ingestion.json` | `performance-benchmark.sh` | Weekly |
-| PF-02 | Performance | Agent latency per severity | ✅ | `performance/agent-latency.json` | `performance-benchmark.sh` | Weekly |
-| PF-03 | Performance | Auth service latency | ✅ | `performance/auth-latency.json` | `performance-benchmark.sh` | Weekly |
-| PF-04 | Performance | Health endpoint responsiveness | ✅ | `performance/health-latency.json` | `performance-benchmark.sh` | Weekly |
-| PF-05 | Performance | Regression detection | ✅ | `performance/baseline-comparison.json` | `compare_baseline.py` | Weekly |
-| PF-06 | Performance | Resource utilization under load | ⏳ | `performance/resource-utilization.json` | Manual | Monthly |
-| PF-07 | Performance | Throughput capacity | ⏳ | `performance/throughput-capacity.json` | Pending | Pending |
-| CM-01 | Compliance | Continuous monitoring | ✅ | `compliance/monitoring-logs.json` | `compliance-evidence-test.sh` | Monthly |
-| CM-02 | Compliance | Incident response procedures | ✅ | `compliance/incident-reports.json` | `compliance-evidence-test.sh` | Per incident |
-| CM-03 | Compliance | Risk assessment | ✅ | `compliance/risk-assessment.json` | `compliance-evidence-test.sh` | Per alert |
-| CM-04 | Compliance | Logical access controls | ✅ | `compliance/access-controls.json` | `compliance-evidence-test.sh` | Monthly |
-| CM-05 | Compliance | Change management | ✅ | `compliance/change-management.json` | `compliance-evidence-test.sh` | Per deploy |
-| CM-06 | Compliance | Threat detection | ✅ | `compliance/threat-detection.json` | `compliance-evidence-test.sh` | Continuous |
-| CM-07 | Compliance | Incident response | ✅ | `compliance/incident-response.json` | `compliance-evidence-test.sh` | Per incident |
-| CM-08 | Compliance | Automated audit trails | ✅ | `compliance/audit-trail.json` | `compliance-evidence-test.sh` | Continuous |
-| CM-09 | Compliance | Audit trail retention | ✅ | `compliance/retention-config.json` | `compliance-evidence-test.sh` | Quarterly |
-| CM-10 | Compliance | Security testing | ✅ | `compliance/security-tests.json` | `compliance-evidence-test.sh` | Weekly |
-| CM-11 | Compliance | Security management process | ⏳ | `compliance/risk-management.json` | Pending | Pending |
-| CM-12 | Compliance | Access control (HIPAA) | ✅ | `compliance/hipaa-access.json` | `compliance-evidence-test.sh` | Monthly |
-| CM-13 | Compliance | Audit controls (HIPAA) | ✅ | `compliance/hipaa-audit.json` | `compliance-evidence-test.sh` | Continuous |
-| CM-14 | Compliance | Integrity controls (HIPAA) | ✅ | `compliance/hipaa-integrity.json` | `compliance-evidence-test.sh` | Continuous |
-| CM-15 | Compliance | Transmission security | ✅ | `compliance/tls-config.json` | `compliance-evidence-test.sh` | Quarterly |
-| CM-16 | Compliance | Storage limitation (GDPR) | ✅ | `compliance/gdpr-retention.json` | `compliance-evidence-test.sh` | Quarterly |
-| CM-17 | Compliance | Integrity + confidentiality (GDPR) | ✅ | `compliance/gdpr-integrity.json` | `compliance-evidence-test.sh` | Quarterly |
-| DG-01 | Data Governance | TLS 1.3 / mTLS | ✅ | `governance/tls-config.json` | `compliance-evidence-test.sh` | Quarterly |
-| DG-02 | Data Governance | AES-256 at rest | ✅ | `governance/encryption-config.json` | `compliance-evidence-test.sh` | Quarterly |
-| DG-03 | Data Governance | Vault PKI certificates | ✅ | `governance/vault-pki.json` | Weekly | Per rotation |
-| DG-04 | Data Governance | Vault dynamic secrets | ⏳ | `governance/vault-dynamic.json` | Monthly | Monthly |
-| DG-05 | Data Governance | PII masking | ✅ | `governance/pii-masking.json` | `compliance-evidence-test.sh` | Weekly |
-| DG-06 | Data Governance | Data retention policies | ✅ | `governance/retention-policies.json` | `compliance-evidence-test.sh` | Quarterly |
-| DG-07 | Data Governance | Data deletion verification | ⏳ | `governance/deletion-verification.json` | Pending | Pending |
-| DG-08 | Data Governance | Backup encryption + integrity | ✅ | `governance/backup-config.json` | Monthly | Monthly |
-| DG-09 | Data Governance | Immutable audit log storage | ⏳ | `governance/immutable-storage.json` | Pending | Pending |
+| ID | Control | Status | Evidence | Notes |
+|----|---------|--------|----------|-------|
+| PE-01 | — | ✅ | certification/evidence/pipeline/PE-01_2026-07-07T1 | Verified |
+| PE-02 | — | ✅ | certification/evidence/pipeline/PE-02_2026-07-07T1 | Verified |
+| PE-03 | — | ✅ | certification/evidence/pipeline/PE-03_2026-07-07T1 | Verified |
+| PE-04 | — | ⏳ | — | Not yet executed |
+| PE-05 | — | ⏳ | — | Not yet executed |
+| PE-06 | — | ⏳ | — | Not yet executed |
+| PE-07 | — | ✅ | certification/evidence/pipeline/PE-07_2026-07-07T1 | Verified |
+| PE-08 | — | ✅ | certification/evidence/pipeline/PE-08_2026-07-07T1 | Verified |
+| PE-09 | — | ⚠️ | certification/evidence/pipeline/PE-09_2026-07-07T1 | Passed with caveats |
+| PE-10 | — | ⏳ | — | Not yet executed |
+| PE-11 | — | ⏳ | — | Not yet executed |
+| PE-12 | — | ✅ | certification/evidence/pipeline/PE-12_2026-07-07T1 | Verified |
+
+---
+
+## Pipeline Integrity Domain (PI-01 through PI-08)
+
+| ID | Control | Status | Evidence | Notes |
+|----|---------|--------|----------|-------|
+| PI-01 | — | ✅ | certification/evidence/pipeline/PI-01_2026-07-07T1 | Verified |
+| PI-02 | — | ✅ | certification/evidence/pipeline/PI-02_2026-07-07T1 | Verified |
+| PI-03 | — | ✅ | certification/evidence/pipeline/PI-03_2026-07-07T1 | Verified |
+| PI-04 | — | ✅ | certification/evidence/pipeline/PI-04_2026-07-07T1 | Verified |
+| PI-05 | — | ✅ | certification/evidence/pipeline/PI-05_2026-07-07T1 | Verified |
+| PI-06 | — | ✅ | certification/evidence/pipeline/PI-06_2026-07-07T1 | Verified |
+| PI-07 | — | ✅ | certification/evidence/pipeline/PI-07_2026-07-07T1 | Verified |
+| PI-08 | — | ✅ | certification/evidence/pipeline/PI-08_2026-07-07T1 | Verified |
+
+---
+
+## Security Domain (SC-01 through SC-15)
+
+| ID | Control | Status | Evidence | Notes |
+|----|---------|--------|----------|-------|
+| SC-01 | — | ⚠️ | certification/evidence/pipeline/SC-01_2026-07-07T1 | Passed with caveats |
+| SC-02 | — | ⚠️ | certification/evidence/pipeline/SC-02_2026-07-07T1 | Passed with caveats |
+| SC-03 | — | ⚠️ | certification/evidence/pipeline/SC-03_2026-07-07T1 | Passed with caveats |
+| SC-04 | — | ⏳ | — | Not yet executed |
+| SC-05 | — | ⏳ | — | Not yet executed |
+| SC-06 | — | ⏭ | certification/evidence/pipeline/SC-06_2026-07-07T1 | Requires additional implementation |
+| SC-07 | — | ✅ | certification/evidence/pipeline/SC-07_2026-07-07T1 | Verified |
+| SC-08 | — | ⚠️ | certification/evidence/pipeline/SC-08_2026-07-07T1 | Passed with caveats |
+| SC-09 | — | ✅ | certification/evidence/pipeline/SC-09_2026-07-07T1 | Verified |
+| SC-10 | — | ⚠️ | certification/evidence/pipeline/SC-10_2026-07-07T1 | Passed with caveats |
+| SC-11 | — | ⏳ | — | Not yet executed |
+| SC-12 | — | ⏭ | certification/evidence/pipeline/SC-12_2026-07-07T1 | Requires additional implementation |
+| SC-13 | — | ⏭ | certification/evidence/pipeline/SC-13_2026-07-07T1 | Requires additional implementation |
+| SC-14 | — | ⏳ | — | Not yet executed |
+| SC-15 | — | ⏳ | — | Not yet executed |
+
+---
+
+## Resilience Domain (RS-01 through RS-10)
+
+| ID | Control | Status | Evidence | Notes |
+|----|---------|--------|----------|-------|
+| RS-01 | — | ✅ | certification/evidence/pipeline/RS-01_2026-07-07T1 | Verified |
+| RS-02 | — | ⚠️ | certification/evidence/pipeline/RS-02_2026-07-07T1 | Passed with caveats |
+| RS-03 | — | ✅ | certification/evidence/pipeline/RS-03_2026-07-07T1 | Verified |
+| RS-04 | — | ⏭ | certification/evidence/pipeline/RS-04_2026-07-07T1 | Requires additional implementation |
+| RS-05 | — | ⏭ | certification/evidence/pipeline/RS-05_2026-07-07T1 | Requires additional implementation |
+| RS-06 | — | ⏭ | certification/evidence/pipeline/RS-06_2026-07-07T1 | Requires additional implementation |
+| RS-07 | — | ✅ | certification/evidence/pipeline/RS-07_2026-07-07T1 | Verified |
+| RS-08 | — | ✅ | certification/evidence/pipeline/RS-08_2026-07-07T1 | Verified |
+| RS-09 | — | ⏭ | certification/evidence/pipeline/RS-09_2026-07-07T1 | Requires additional implementation |
+| RS-10 | — | ⏭ | certification/evidence/pipeline/RS-10_2026-07-07T1 | Requires additional implementation |
+
+---
+
+## Compliance Domain (CM-01 through CM-10)
+
+| ID | Control | Status | Evidence | Notes |
+|----|---------|--------|----------|-------|
+| CM-01 | — | ✅ | certification/evidence/compliance/CM-01_2026-07-07 | Verified |
+| CM-02 | — | ✅ | certification/evidence/compliance/CM-02_2026-07-07 | Verified |
+| CM-03 | — | ✅ | certification/evidence/compliance/CM-03_2026-07-07 | Verified |
+| CM-04 | — | ✅ | certification/evidence/compliance/CM-04_2026-07-07 | Verified |
+| CM-05 | — | ✅ | certification/evidence/compliance/CM-05_2026-07-07 | Verified |
+| CM-06 | — | ✅ | certification/evidence/compliance/CM-06_2026-07-07 | Verified |
+| CM-07 | — | ✅ | certification/evidence/compliance/CM-07_2026-07-07 | Verified |
+| CM-08 | — | ⚠️ | certification/evidence/compliance/CM-08_2026-07-07 | Passed with caveats |
+| CM-09 | — | ✅ | certification/evidence/compliance/CM-09_2026-07-07 | Verified |
+| CM-10 | — | ✅ | certification/evidence/compliance/CM-10_2026-07-07 | Verified |
+
+---
+
+## Observability Domain (OB-01 through OB-07)
+
+| ID | Control | Status | Evidence | Notes |
+|----|---------|--------|----------|-------|
+| OB-01 | — | ✅ | certification/evidence/pipeline/OB-01_2026-07-07T1 | Verified |
+| OB-02 | — | ✅ | certification/evidence/pipeline/OB-02_2026-07-07T1 | Verified |
+| OB-03 | — | ⏳ | — | Not yet executed |
+| OB-04 | — | ⏳ | — | Not yet executed |
+| OB-05 | — | ✅ | certification/evidence/pipeline/OB-05_2026-07-07T1 | Verified |
+| OB-06 | — | ⏳ | — | Not yet executed |
+| OB-07 | — | ✅ | certification/evidence/pipeline/OB-07_2026-07-07T1 | Verified |
+
+---
 
 ## Summary
 
-| Domain | Total Controls | Certified | Pending | Not Certified | Coverage |
-|--------|:-------------:|:---------:|:-------:|:-------------:|:--------:|
-| Pipeline Integrity | 8 | 6 | 2 | 0 | 75% |
-| Security Posture | 12 | 11 | 1 | 0 | 92% |
-| Resilience | 9 | 7 | 2 | 0 | 78% |
-| Performance | 7 | 5 | 2 | 0 | 71% |
-| Compliance | 17 | 15 | 2 | 0 | 88% |
-| Data Governance | 9 | 7 | 2 | 0 | 78% |
-| **Total** | **62** | **51** | **11** | **0** | **82%** |
+| Domain | Total | ✅ Pass | ⚠️ Warn | ❌ Fail | ⏭ Skipped | ⏳ Planned |
+|--------|-------|---------|----------|----------|------------|------------|
+| Performance | 12 | 6 | 1 | 0 | 0 | 5 |
+| Pipeline Integrity | 8 | 8 | 0 | 0 | 0 | 0 |
+| Security | 15 | 2 | 5 | 0 | 3 | 5 |
+| Resilience | 10 | 4 | 1 | 0 | 5 | 0 |
+| Compliance | 10 | 9 | 1 | 0 | 0 | 0 |
+| Observability | 7 | 4 | 0 | 0 | 0 | 3 |
+| **Total** | **62** | **33** | **8** | **0** | **8** | **13** |
 
-> **Target:** 100% certification coverage by Phase 5 (Audit Readiness).
+## Execution Log
+
+| Date | Runner | Procedures Executed | Controls Tested | Pass Rate |
+|------|--------|--------------------|-----------------|-----------|
+| 2026-07-07 | pabl0wsl | performance-benchmark, pipeline-integrity-test, security-controls-test, compliance-evidence-test | 49/62 | 80% |

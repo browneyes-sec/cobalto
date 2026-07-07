@@ -1,0 +1,22 @@
+{
+  "artifact_id": "78f3c0f3-74bf-44b2-909e-111889b52762",
+  "control_id": "CM-03",
+  "domain": "compliance",
+  "procedure": "compliance-evidence-test.sh",
+  "timestamp": "2026-07-07T17:15:13Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "nist_rcrp_recovery",
+    "observed_value": 5,
+    "threshold": "60",
+    "passed": true,
+    "details": "Service recovers within SLO after restart (200)"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "evidence_collection",
+    "signature": "876b4519d247ede2e40c8ee2e8071ed74814749315a28b39e60d5c05ee90c1fe"
+  }
+}

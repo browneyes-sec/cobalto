@@ -1,0 +1,22 @@
+{
+  "artifact_id": "7649b71f-f27c-4fa2-820e-6be6ed9b07bb",
+  "control_id": "PE-12",
+  "domain": "performance",
+  "procedure": "performance-benchmark.sh",
+  "timestamp": "2026-07-07T17:12:59Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "end_to_end_duration_p99",
+    "observed_value": 273.62,
+    "threshold": "10000ms",
+    "passed": true,
+    "details": "End-to-end pipeline within limit"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "c5fc8c711bbec68602da0f7347626622f5f7c0e07fc83cf4d90782f81e8cd426"
+  }
+}

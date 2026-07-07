@@ -1,0 +1,22 @@
+{
+  "artifact_id": "4f48761a-a241-47fd-a5fd-6a2d195124fd",
+  "control_id": "RS-04",
+  "domain": "resilience",
+  "procedure": "chaos-experiments",
+  "timestamp": "2026-07-07T17:17:46Z",
+  "status": "skipped",
+  "result": {
+    "metric_name": "dependency_degradation",
+    "observed_value": "none",
+    "threshold": "circuit_breaker",
+    "passed": false,
+    "details": "Circuit breaker not implemented. Agent crashes on dependency failure rather than degrading gracefully."
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "chaos_experiment",
+    "signature": "918eda91a819da46f0f3396cace585c3a8a01c0e0d0f213c08fb603340e3d093"
+  }
+}

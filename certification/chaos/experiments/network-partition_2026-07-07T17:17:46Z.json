@@ -1,0 +1,29 @@
+{
+  "name": "Network Partition",
+  "hypothesis": "Agent handles network isolation and recovers when connectivity restored",
+  "steady_state": {
+    "health_before": true,
+    "dependencies": [
+      "postgres",
+      "redis"
+    ]
+  },
+  "experiment": {
+    "type": "network_partition",
+    "method": "docker network disconnect/connect",
+    "duration_seconds": 3
+  },
+  "result": {
+    "isolated_unreachable": true,
+    "recovered": true,
+    "alert_after_recovery": true,
+    "passed": true
+  },
+  "experiment_id": "fa646bea-fdd6-466d-99e5-3550f19834c0",
+  "timestamp": "2026-07-07T17:17:46Z",
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "environment": "dev",
+    "signature": "643ddba90bcc133d367feafb449e0de06d5b987052c4dbca2ab202cd46c4312f"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "artifact_id": "7a36732e-2e44-40f6-8abc-aee0befaada2",
+  "control_id": "OB-05",
+  "domain": "performance",
+  "procedure": "performance-benchmark.sh",
+  "timestamp": "2026-07-07T17:12:59Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "prometheus_target_up",
+    "observed_value": 1,
+    "threshold": "1",
+    "passed": true,
+    "details": "Prometheus target langgraph-agent is UP"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "57576079e365ceebacebe402ae80d0efb7b69781a9261cf44d9b3c7e6bfa6428"
+  }
+}

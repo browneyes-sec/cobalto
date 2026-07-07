@@ -1,0 +1,22 @@
+{
+  "artifact_id": "43ff54ec-fcbf-42a3-97e7-7aa78c17628b",
+  "control_id": "OB-07",
+  "domain": "pipeline-integrity",
+  "procedure": "pipeline-integrity-test.sh",
+  "timestamp": "2026-07-07T17:13:23Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "health_endpoint",
+    "observed_value": 200,
+    "threshold": "200",
+    "passed": true,
+    "details": "Service health endpoint responding"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "a146b583fc9af3190ba8472e20736eee444c4646222895028c5300e5b803e034"
+  }
+}

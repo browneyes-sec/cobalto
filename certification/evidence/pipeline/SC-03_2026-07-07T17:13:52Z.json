@@ -1,0 +1,22 @@
+{
+  "artifact_id": "5f99e26a-7a94-4546-90a9-dbc5706193c6",
+  "control_id": "SC-03",
+  "domain": "security",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:13:52Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "auth_valid_key",
+    "observed_value": "dev",
+    "threshold": "production",
+    "passed": false,
+    "details": "Auth disabled in dev (COBALTO_DISABLE_AUTH). Valid key acceptance verified in production."
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "d5defaaa7b9d7759caad5bcaf1d15cbcb13222b01c34ec6512db6f25f3b7abaf"
+  }
+}

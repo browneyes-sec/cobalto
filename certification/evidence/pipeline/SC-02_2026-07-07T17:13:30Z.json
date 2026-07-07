@@ -1,0 +1,22 @@
+{
+  "artifact_id": "2fd323b7-6148-49db-9afe-fd501b4f7a54",
+  "control_id": "SC-02",
+  "domain": "security",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:13:30Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "auth_invalid_key",
+    "observed_value": 422,
+    "threshold": "401",
+    "passed": false,
+    "details": "Auth may be disabled: HTTP 422"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "27b1b7c6955a0f90d200b7684c39d3ebe0fb543853bce5f44252ab8a42a84a82"
+  }
+}

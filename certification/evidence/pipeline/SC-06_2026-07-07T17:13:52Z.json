@@ -1,0 +1,22 @@
+{
+  "artifact_id": "6f52bef2-aeee-46cd-aa78-ccf3717687e0",
+  "control_id": "SC-06",
+  "domain": "security",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:13:52Z",
+  "status": "skipped",
+  "result": {
+    "metric_name": "rate_limiter_reset",
+    "observed_value": "null",
+    "threshold": "null",
+    "passed": false,
+    "details": "Rate limiter reset test requires 60s wait \u2014 verify in production"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "283d5abc0424bb1fb98defccaa3606a2755b6796194dbd4e202880c7d9b96387"
+  }
+}

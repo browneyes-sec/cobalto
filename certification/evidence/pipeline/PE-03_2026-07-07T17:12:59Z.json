@@ -1,0 +1,22 @@
+{
+  "artifact_id": "1977c5d7-3bb5-496a-842b-a8e9deb45a4e",
+  "control_id": "PE-03",
+  "domain": "performance",
+  "procedure": "performance-benchmark.sh",
+  "timestamp": "2026-07-07T17:12:59Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "agent_latency_p99",
+    "observed_value": 273.62,
+    "threshold": "5000ms",
+    "passed": true,
+    "details": "p99 latency within limit"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "061f21585308ac4c2536b9f73d1e9b084198a1d24270fecebd07ed15678ac3d8"
+  }
+}

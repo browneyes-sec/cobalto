@@ -1,0 +1,22 @@
+{
+  "artifact_id": "464ea526-d07c-4439-91e1-45b8cac44292",
+  "control_id": "CM-04",
+  "domain": "compliance",
+  "procedure": "compliance-evidence-test.sh",
+  "timestamp": "2026-07-07T17:15:48Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "soc2_availability_monitoring",
+    "observed_value": "0",
+    "threshold": "1",
+    "passed": false,
+    "details": "Prometheus up metric = 0 (service available after restart recovery)"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "ab771f834a12518b657cd5e3214c2f020269073a590a0522abfb57ce42a1aab3"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "artifact_id": "c3771d64-08fd-40e8-967e-b44ac133cc32",
+  "control_id": "CM-04",
+  "domain": "compliance",
+  "procedure": "compliance-evidence-test.sh",
+  "timestamp": "2026-07-07T17:15:13Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "soc2_availability_monitoring",
+    "observed_value": 0,
+    "threshold": "1",
+    "passed": false,
+    "details": "Availability monitoring not fully confirmed"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "evidence_collection",
+    "signature": "d0ad3dd73b8e8f43bbe56daa6f123068619b04b0747ccd04ca01fd6ddcc6022b"
+  }
+}

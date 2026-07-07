@@ -1,0 +1,22 @@
+{
+  "artifact_id": "4a3af265-5dd3-4e41-a094-2f97eed7b534",
+  "control_id": "CM-08",
+  "domain": "compliance",
+  "procedure": "compliance-evidence-test.sh",
+  "timestamp": "2026-07-07T17:15:13Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "pci_audit_trail",
+    "observed_value": 1,
+    "threshold": ">= 2",
+    "passed": false,
+    "details": "Insufficient audit action variety"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "evidence_collection",
+    "signature": "6dce2705a0c730abaa7c0fab679546e13d01c6691ddf047252a8cbf976a895d2"
+  }
+}

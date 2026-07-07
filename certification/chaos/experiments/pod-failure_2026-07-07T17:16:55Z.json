@@ -1,0 +1,24 @@
+{
+  "name": "Pod Failure",
+  "hypothesis": "Agent restarts cleanly and continues processing alerts without data loss",
+  "steady_state": {
+    "health_before": true,
+    "investigations_before": 0
+  },
+  "experiment": {
+    "action": "docker restart cobalto-langgraph-agent",
+    "recovery_wait_seconds": 8
+  },
+  "result": {
+    "health_after": true,
+    "alert_after": false,
+    "passed": false
+  },
+  "experiment_id": "192b946a-351c-4ecd-b599-03a1b6fb8558",
+  "timestamp": "2026-07-07T17:16:55Z",
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "environment": "dev",
+    "signature": "152300dcd4c00df89e14793ade245f94cf57886840f6aba7ca9e38ee2e0dba50"
+  }
+}

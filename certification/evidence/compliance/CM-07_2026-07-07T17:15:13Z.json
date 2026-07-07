@@ -1,0 +1,22 @@
+{
+  "artifact_id": "ed2ae349-dcab-45c5-95c9-f452a7f80709",
+  "control_id": "CM-07",
+  "domain": "compliance",
+  "procedure": "compliance-evidence-test.sh",
+  "timestamp": "2026-07-07T17:15:13Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "iso27001_incident_management",
+    "observed_value": "INC-21BC3327",
+    "threshold": "non-empty",
+    "passed": true,
+    "details": "Incident reports contain full chain of custody"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "evidence_collection",
+    "signature": "71489397c37767a87f0fe1bd1bb0709627a7139dd3fb68e413ab3e689e1dd104"
+  }
+}

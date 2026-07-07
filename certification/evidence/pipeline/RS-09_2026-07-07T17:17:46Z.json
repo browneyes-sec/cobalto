@@ -1,0 +1,22 @@
+{
+  "artifact_id": "042f2a02-0ead-4c46-b0b7-2cdfeac64215",
+  "control_id": "RS-09",
+  "domain": "resilience",
+  "procedure": "chaos-experiments",
+  "timestamp": "2026-07-07T17:17:46Z",
+  "status": "skipped",
+  "result": {
+    "metric_name": "memory_leak",
+    "observed_value": "none",
+    "threshold": "100_cycles",
+    "passed": false,
+    "details": "Endurance test requires 100+ alert cycles \u2014 run as separate procedure"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "chaos_experiment",
+    "signature": "b1da00117efb77fea178e75a72f40b38baa242395c486b3c80de1a4e06ae3e04"
+  }
+}

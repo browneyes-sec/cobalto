@@ -1,0 +1,22 @@
+{
+  "artifact_id": "02ce9c97-8f9e-491e-9660-b7a16c66a2c1",
+  "control_id": "PI-02",
+  "domain": "pipeline-integrity",
+  "procedure": "pipeline-integrity-test.sh",
+  "timestamp": "2026-07-07T17:13:23Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "malformed_rejection",
+    "observed_value": 422,
+    "threshold": "422",
+    "passed": true,
+    "details": "Malformed alert returns HTTP 422"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "00b3487ff3e285a418694642e5e52c393c712f3567df250121573572e4bebfcf"
+  }
+}

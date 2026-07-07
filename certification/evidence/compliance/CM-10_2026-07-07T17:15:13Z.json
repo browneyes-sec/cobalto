@@ -1,0 +1,22 @@
+{
+  "artifact_id": "8851a11d-9e7a-4aee-92db-9e0ca3dc58ab",
+  "control_id": "CM-10",
+  "domain": "compliance",
+  "procedure": "compliance-evidence-test.sh",
+  "timestamp": "2026-07-07T17:15:13Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "gdpr_breach_notification",
+    "observed_value": 1,
+    "threshold": "1",
+    "passed": true,
+    "details": "Alert pipeline timestamps support breach notification SLAs"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "evidence_collection",
+    "signature": "d4a1c59690f310ac70072acb81f222c4e88e2c35014f573cbf3ee46c5d69a5b5"
+  }
+}

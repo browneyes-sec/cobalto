@@ -1,0 +1,22 @@
+{
+  "artifact_id": "1f9e6213-cc49-486e-be3f-993b0942889f",
+  "control_id": "SC-08",
+  "domain": "security",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:14:36Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "audit_tamper_detection",
+    "observed_value": 0,
+    "threshold": "1",
+    "passed": false,
+    "details": "Tamper detection: original_valid=False, tampered_rejected=True"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "log_parse",
+    "signature": "dbda532fbf2f4c4111b641f136489c19d7c244042a1c640fe19a580677efe044"
+  }
+}

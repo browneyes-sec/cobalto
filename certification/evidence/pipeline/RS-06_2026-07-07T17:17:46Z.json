@@ -1,0 +1,22 @@
+{
+  "artifact_id": "752daa16-0dc5-492b-8584-c2aa85701f1e",
+  "control_id": "RS-06",
+  "domain": "resilience",
+  "procedure": "chaos-experiments",
+  "timestamp": "2026-07-07T17:17:46Z",
+  "status": "skipped",
+  "result": {
+    "metric_name": "resource_exhaustion",
+    "observed_value": "none",
+    "threshold": "memory_limits",
+    "passed": false,
+    "details": "Requires memory limit configuration and stress testing \u2014 not implemented in dev"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "chaos_experiment",
+    "signature": "10ae57d5b45ea8f34747fc27a68652da0f1922a69f27a7a4ae09f645cc16c14c"
+  }
+}

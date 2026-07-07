@@ -1,0 +1,22 @@
+{
+  "artifact_id": "148a2c26-a7bd-44a5-83a0-f6320adfc0d2",
+  "control_id": "OB-01",
+  "domain": "performance",
+  "procedure": "performance-benchmark.sh",
+  "timestamp": "2026-07-07T17:12:59Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "metrics_endpoint_up",
+    "observed_value": 1,
+    "threshold": "1",
+    "passed": true,
+    "details": "Metrics endpoint responding"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "d7946b6556a8e1cddcd69f8d488cd1ca5ef2596170f567a3cf0b16d28180dc38"
+  }
+}

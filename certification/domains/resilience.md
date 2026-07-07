@@ -1,95 +1,23 @@
-# Resilience Certification
+# Resilience Domain — Controls RS-01 through RS-10
 
-> **Domain:** System survivability under component failures  
-> **Control Owner:** DevOps / SRE  
-> **Steady State:** Alert processing continues despite individual pod failures, network partitions, and dependency degradation
+**Steady-State Hypothesis**: The platform continues to serve alerts within degraded SLOs during partial failures and recovers fully within 60s of failure resolution.
 
-## Certification Scope
+## Controls
 
-Certifies that the platform maintains functionality when components fail. Resilience is measured by the platform's ability to continue processing alerts, retain data, and recover without manual intervention.
+| ID | Control | Verification | Procedure |
+|----|---------|-------------|-----------|
+| RS-01 | Pod failure — single agent restarts | Agent responds after `docker restart` | chaos-pod-failure.sh |
+| RS-02 | Pod failure — no data loss on restart | Alert count persists across restart | chaos-pod-failure.sh |
+| RS-03 | Network partition — agent recovers after isolation | Agent responds after network restore | chaos-network-partition.sh |
+| RS-04 | Dependency failure — graceful degradation | Agent returns degraded response when Qdrant is down | chaos-dependency-failure.sh |
+| RS-05 | Dependency failure — recovery after restore | Full functionality after dependency comes back | chaos-dependency-failure.sh |
+| RS-06 | Resource exhaustion — OOM prevention | Process handles memory pressure without crash | resource-exhaustion.sh |
+| RS-07 | Startup — clean initialization | Service starts without errors after restart | startup-test.sh |
+| RS-08 | Startup — dependency ordering | Service waits for postgres/redis before accepting traffic | startup-test.sh |
+| RS-09 | Long-running — no memory leak | Memory stable over 100+ alert cycles | endurance-test.sh |
+| RS-10 | Long-running — no metric leak | Metric cardinality stable over 100+ alert cycles | endurance-test.sh |
 
-| Failure Mode | Scope | Resilience Control |
-|-------------|-------|-------------------|
-| Pod crash | LangGraph Agent | K8s ReplicaSet + PDB (minAvailable: 1), liveness/readiness probes |
-| Dependency failure | Qdrant / OpenCTI / ES timeout | Async tool calls with timeout, fallback status, enriched service degradation |
-| Network partition | Service-to-service connectivity | Istio mTLS with retry, circuit breaker, NetworkPolicy isolation |
-| Node failure | K8s worker node | PodDisruptionBudget, anti-affinity, multi-AZ (production) |
-| Resource exhaustion | Memory / CPU / disk | Resource limits, HorizontalPodAutoscaler, OOM-kill recovery |
-| API throttling | External API rate limits | Exponential backoff, degraded enrichment fallback |
-| Secret expiry | Vault dynamic secret TTL | Vault agent sidecar auto-renewal, pre-expiry rotation |
-
-## Steady State Definition
-
-| Metric | Threshold | Measurement |
-|--------|-----------|-------------|
-| Alert success rate under pod failure | ≥ 99% of alerts processed during pod rollout | Chaos experiment |
-| Recovery time after pod failure | ≤ 30s (liveness check interval × failure threshold) | `kubectl rollout status` |
-| Dependency degradation handling | 100% of API timeouts produce graceful degradation | Integration test |
-| Data durability under node failure | 0% data loss | PDB + replica count validation |
-| Resource limit enforcement | 0% OOM-killed pods exceed memory limit | Prometheus metric check |
-| Secret rotation continuity | 0% authentication failures during rotation | Vault test |
-
-## Controls Under Certification
-
-| Control ID | Control | Evidence | Test Procedure |
-|-----------|---------|----------|---------------|
-| RS-01 | PodDisruptionBudget (minAvailable ≥ 1) | PDB manifest existence + validation | K8s hardening CI |
-| RS-02 | Liveness probe (HTTP GET /health) | Probe config in deployment | K8s manifest scan |
-| RS-03 | Readiness probe (HTTP GET /ready) | Probe config in deployment | K8s manifest scan |
-| RS-04 | Resource limits (CPU + memory) | limits configured on all containers | K8s manifest scan |
-| RS-05 | Graceful dependency degradation | Integration test with mocked failures | `resilience-test.sh` |
-| RS-06 | Retry logic for external API calls | Integration test with transient failures | `resilience-test.sh` |
-| RS-07 | Circuit breaker for cascading failures | Fallback behavior on critical dependency | Chaos experiment |
-| RS-08 | Pod anti-affinity (production) | Affinity rules in deployment | K8s manifest scan |
-| RS-09 | Graceful shutdown (SIGTERM handling) | PreStop hook, connection draining | Chaos experiment |
-
-## Chaos Experiments
-
-| Experiment | Hypothesis | Blast Radius |
-|-----------|-----------|-------------|
-| [Pod failure](../../chaos/experiments/pod-failure.md) | Killing 1 langgraph-agent pod: remaining pods process alerts without data loss | Pod |
-| [Network partition](../../chaos/experiments/network-partition.md) | Cutting Qdrant connectivity: alerts processed with degraded enrichment | Service |
-| [API degradation](../../chaos/experiments/api-degradation.md) | External API timeouts ≥ 5s: pipeline returns enrichment_failed status, alert preserved | Service |
-| [Load spike](../../chaos/experiments/load-spike.md) | 10× normal alert rate: no crashes, rate limiting enforces backpressure | Service |
-| Node failure (staging only) | K8s worker node drain: pods rescheduled, no data loss | Cluster |
-
-## Test Coverage Requirements
-
-- **Integration tests:** All external dependencies mocked for timeout/failure scenarios
-- **E2E tests:** Full pipeline test with degraded dependencies
-- **K8s validation:** PDB, probe, resource limit checks on every deployment/statefulset
-- **Chaos experiments:** Each experiment runs at least once before L2 certification
-
-## Certification Procedure
-
-```bash
-# 1. Validate K8s resilience configuration
-bash scripts/validate-hardening.sh
-
-# 2. Run resilience integration tests
-PYTHONPATH=services/langgraph-agent python3 -m pytest \
-  tests/integration/test_api.py -k "failure or error or timeout" -v
-
-# 3. Run pod failure chaos experiment
-./certification/procedures/resilience-test.sh --experiment pod-failure
-
-# 4. Run network partition chaos experiment
-./certification/procedures/resilience-test.sh --experiment network-partition
-
-# 5. Generate evidence
-python3 certification/evidence/generate-package.py --domain resilience
-```
-
-## Current Status
-
-| Control | L1 (CI Gate) | L2 (Validation) | L3 (Evidence) | L4 (Audit) |
-|---------|:-------------:|:----------------:|:--------------:|:-----------:|
-| RS-01 | ✅ 8 PDBs created | ✅ Validated | ⏳ Template ready | ⏳ Planned |
-| RS-02 | ✅ All deployments | ✅ Automated | ⏳ Template ready | ⏳ Planned |
-| RS-03 | ✅ All deployments | ✅ Automated | ⏳ Template ready | ⏳ Planned |
-| RS-04 | ✅ 15 workloads | ✅ Automated | ⏳ Template ready | ⏳ Planned |
-| RS-05 | ✅ 3 failure tests | ✅ Automated | ⏳ Template ready | ⏳ Planned |
-| RS-06 | ✅ 3 integration tests | ✅ Automated | ⏳ Template ready | ⏳ Planned |
-| RS-07 | ⏳ No circuit breaker impl | ⏳ Pending | ⏳ Pending | ⏳ Planned |
-| RS-08 | ✅ Production manifests | ✅ Validated | ⏳ Template ready | ⏳ Planned |
-| RS-09 | ⏳ Not implemented | ⏳ Pending | ⏳ Pending | ⏳ Planned |
+## Steady-State Verification
+- Service is running and responding to health checks
+- Baseline metrics captured before experiment
+- Recovery verified after experiment

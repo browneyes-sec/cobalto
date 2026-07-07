@@ -1,0 +1,22 @@
+{
+  "artifact_id": "c7c25a05-db05-45ea-81fb-c184a2c560ec",
+  "control_id": "PI-01",
+  "domain": "pipeline-integrity",
+  "procedure": "pipeline-integrity-test.sh",
+  "timestamp": "2026-07-07T17:13:23Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "alert_ingestion",
+    "observed_value": 1,
+    "threshold": "1",
+    "passed": true,
+    "details": "Valid alert produced incident INC-0D4D6A04"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "086995898b8c1d1282fecf81ceb2bb38c97396934188d21ba640681a98cb3c83"
+  }
+}

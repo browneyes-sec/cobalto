@@ -1,0 +1,22 @@
+{
+  "artifact_id": "00c3c67b-0bbd-4957-b238-ce327e1af6ff",
+  "control_id": "PE-09",
+  "domain": "performance",
+  "procedure": "performance-benchmark.sh",
+  "timestamp": "2026-07-07T17:12:59Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "process_resident_memory_bytes",
+    "observed_value": 86130688.0,
+    "threshold": "536870912 (512MB)",
+    "passed": false,
+    "details": "Memory above or unknown"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "aa76c024d39c5f92aa55a47fc98cb4a8018a890b71dd8a1abfdae22da2b5a024"
+  }
+}

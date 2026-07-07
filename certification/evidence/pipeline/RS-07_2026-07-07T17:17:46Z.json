@@ -1,0 +1,22 @@
+{
+  "artifact_id": "ac66d3f0-28b2-4861-88b7-82564e7c1cd3",
+  "control_id": "RS-07",
+  "domain": "resilience",
+  "procedure": "chaos-experiments",
+  "timestamp": "2026-07-07T17:17:46Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "clean_startup",
+    "observed_value": 1,
+    "threshold": 1,
+    "passed": true,
+    "details": "Service starts without errors after restart (verified in RS-01)"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "chaos_experiment",
+    "signature": "02640ea8773b513d3f6dc070fa8f13a18f1252008f453eec7f5985c99860d94c"
+  }
+}

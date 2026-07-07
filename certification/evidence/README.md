@@ -1,140 +1,83 @@
-# Evidence Collection
+# Evidence Artifact Schema
 
-> Auto-generated evidence artifacts for certification audits.  
-> **Principle:** All evidence is generated programmatically — no manual collection.
+All certification evidence artifacts must conform to this JSON schema for machine-verifiability and chain-of-custody tracking.
 
-## Directory Structure
-
-```
-evidence/
-├── pipeline/          # Pipeline integrity evidence
-│   ├── validation-logs.json
-│   ├── schema-enforcement.json
-│   ├── hmac-receipts.json
-│   ├── state-integrity.json
-│   ├── pipeline-completions.json
-│   └── error-logs.json
-├── security/          # Security posture evidence
-│   ├── auth-middleware.json
-│   ├── console-auth.json
-│   ├── injection-guard.json
-│   ├── rate-limiter.json
-│   ├── audit-log.json
-│   ├── network-policies.json
-│   └── security-context.json
-├── resilience/        # Resilience evidence
-│   ├── pdb-config.json
-│   ├── degradation-test.json
-│   └── chaos-results/
-│       ├── pod-failure-*.json
-│       ├── network-partition-*.json
-│       └── load-spike-*.json
-├── performance/       # Performance evidence
-│   ├── alert-ingestion.json
-│   ├── agent-latency.json
-│   ├── auth-latency.json
-│   ├── health-latency.json
-│   └── baseline-comparison.json
-├── compliance/        # Compliance evidence
-│   ├── monitoring-logs.json
-│   ├── incident-reports/
-│   ├── access-controls.json
-│   ├── change-management.json
-│   ├── audit-trail.json
-│   └── retention-config.json
-├── governance/        # Data governance evidence
-│   ├── tls-config.json
-│   ├── encryption-config.json
-│   ├── vault-pki.json
-│   ├── pii-masking.json
-│   └── retention-policies.json
-└── reports/           # Certification reports
-    ├── weekly-*.md
-    └── audit-packages/
-```
-
-## Evidence Lifecycle
-
-```
-1. GENERATE — Test procedure produces evidence artifact
-2. SIGN    — HMAC-SHA256 signature applied
-3. VERIFY  — Automated integrity check
-4. STORE   — Immutable evidence bucket (S3 Object Lock)
-5. ARCHIVE — After retention period (Glacier)
-6. AUDIT   — Produced on demand for auditor
-```
-
-## Evidence Schema
-
-Every evidence artifact follows this schema:
+## Schema
 
 ```json
 {
-  "artifact_id": "uuid-v4",
-  "domain": "string",
-  "control_id": "string",
-  "timestamp": "ISO 8601 UTC",
-  "source": "CI run URL | procedure name",
-  "procedure": "certification/procedures/<name>.sh",
-  "result": "PASS | FAIL | WARNING",
-  "metrics": {},
-  "hash": "sha3-256 hex digest",
-  "signature": "HMAC-SHA256",
-  "signed_by": "certification-engineer@cobalto",
-  "chain_of_custody": [
-    { "actor": "system", "action": "generated", "timestamp": "ISO 8601" },
-    { "actor": "evidence-custodian", "action": "verified", "timestamp": "ISO 8601" }
-  ]
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "artifact_id", "control_id", "domain", "procedure",
+    "timestamp", "status", "result", "chain_of_custody"
+  ],
+  "properties": {
+    "artifact_id": {
+      "type": "string",
+      "description": "Unique identifier for this artifact (UUID v4)"
+    },
+    "control_id": {
+      "type": "string",
+      "pattern": "^(PE|PI|SC|RS|CM|OB)-\\d{2}$",
+      "description": "The control being validated"
+    },
+    "domain": {
+      "type": "string",
+      "enum": ["performance", "pipeline-integrity", "security", "resilience", "compliance", "observability"]
+    },
+    "procedure": {
+      "type": "string",
+      "description": "Procedure script that generated this evidence"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of evidence collection"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pass", "fail", "error", "skipped"],
+      "description": "Overall control status"
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "metric_name": {"type": "string"},
+        "observed_value": {"type": ["number", "string", "boolean"]},
+        "threshold": {"type": ["number", "string"], "description": "Expected pass/fail threshold"},
+        "passed": {"type": "boolean"},
+        "details": {"type": "string", "description": "Human-readable explanation"}
+      },
+      "required": ["passed", "details"]
+    },
+    "chain_of_custody": {
+      "type": "object",
+      "required": ["runner", "hostname", "environment", "collection_method"],
+      "properties": {
+        "runner": {"type": "string", "description": "User or service that ran the procedure"},
+        "hostname": {"type": "string"},
+        "environment": {"type": "string", "enum": ["dev", "staging", "production"]},
+        "collection_method": {"type": "string", "description": "How evidence was gathered (e.g., API call, log parse, script output)"},
+        "signature": {"type": "string", "description": "HMAC-SHA256 of the artifact body for tamper evidence"}
+      }
+    }
+  }
 }
 ```
 
-## Evidence Generation
+## File Naming Convention
 
-```bash
-# Generate evidence for all domains
-python3 certification/evidence/generate-package.py --domain all
-
-# Generate evidence for specific domain
-python3 certification/evidence/generate-package.py --domain pipeline-integrity
-
-# Verify evidence signatures
-python3 certification/evidence/verify-signatures.py
-
-# Package for auditor
-python3 certification/evidence/package-for-audit.py --framework soc2
+```
+certification/evidence/{domain}/{control-id}_{timestamp}.json
 ```
 
-## Storage
-
-| Environment | Storage | Retention | Immutability |
-|-------------|---------|-----------|-------------|
-| Development | Local filesystem (git-ignored) | Until next run | None |
-| CI | GitHub Actions artifacts | 90 days | None |
-| Staging | S3 bucket (versioned) | 3 years | S3 Object Lock (GOVERNANCE) |
-| Production | S3 bucket (immutable) | 10 years | S3 Object Lock (COMPLIANCE) |
-| Audit | Encrypted USB / secure FTP | Per auditor request | Tamper-evident seals |
+Example: `certification/evidence/pipeline/PI-01_2026-07-07T14-00-00Z.json`
 
 ## Chain of Custody
 
-Every evidence access is logged:
+Each artifact must include a `chain_of_custody.signature` field containing an HMAC-SHA256 hash of the artifact body (all fields except the signature itself). This ensures:
 
-```json
-{
-  "artifact_id": "uuid-v4",
-  "events": [
-    {
-      "timestamp": "2026-07-06T12:00:00Z",
-      "actor": "certification-engineer@cobalto",
-      "action": "generated",
-      "source": "CI run #1234"
-    },
-    {
-      "timestamp": "2026-07-06T12:05:00Z",
-      "actor": "evidence-custodian@cobalto",
-      "action": "verified",
-      "hash_match": true,
-      "signature_valid": true
-    }
-  ]
-}
-```
+1. **Non-repudiation**: The runner cannot deny generating the artifact
+2. **Integrity**: The artifact has not been modified after generation
+3. **Auditability**: Full provenance chain for compliance auditors

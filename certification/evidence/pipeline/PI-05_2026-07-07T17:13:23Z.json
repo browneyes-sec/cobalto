@@ -1,0 +1,22 @@
+{
+  "artifact_id": "51936038-b51d-49d7-9ca0-7c37b743d913",
+  "control_id": "PI-05",
+  "domain": "pipeline-integrity",
+  "procedure": "pipeline-integrity-test.sh",
+  "timestamp": "2026-07-07T17:13:23Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "prometheus_alert_counter",
+    "observed_value": 4,
+    "threshold": ">= 1",
+    "passed": true,
+    "details": "Prometheus recording alert metrics"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "0b318b102a98e932a28fec39f145d3d6f16c5c6288ebe5b31cce2e1781e179f6"
+  }
+}

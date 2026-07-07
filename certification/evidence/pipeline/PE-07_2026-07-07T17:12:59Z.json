@@ -1,0 +1,22 @@
+{
+  "artifact_id": "5fb370a8-ea57-4beb-a29a-762f7b0bf442",
+  "control_id": "PE-07",
+  "domain": "performance",
+  "procedure": "performance-benchmark.sh",
+  "timestamp": "2026-07-07T17:12:59Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "alerts_received_total",
+    "observed_value": 3,
+    "threshold": ">= 1",
+    "passed": true,
+    "details": "Alerts being received and counted"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "74b36205205a65bcb5b249625151220c6ee766ae0f41c98e35c1fd5858f41c5b"
+  }
+}

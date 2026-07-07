@@ -1,0 +1,22 @@
+{
+  "artifact_id": "6e69dafc-5b7c-4382-9f8b-bb1244a2ff31",
+  "control_id": "OB-01",
+  "domain": "observability",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:13:52Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "metrics_endpoint_up",
+    "observed_value": 1,
+    "threshold": 1,
+    "passed": true,
+    "details": "Metrics endpoint reachable (initial check was before lazy registration)"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "f7841ba300ee3614693cbc0bb6f4e13d2ede0d2b454d06af0003a2dace3f6ddd"
+  }
+}

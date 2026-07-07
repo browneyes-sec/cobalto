@@ -1,0 +1,22 @@
+{
+  "artifact_id": "b70bdc2f-3cdd-4897-8b9e-aaab9c1c685c",
+  "control_id": "RS-08",
+  "domain": "resilience",
+  "procedure": "chaos-experiments",
+  "timestamp": "2026-07-07T17:17:46Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "dependency_ordering",
+    "observed_value": 1,
+    "threshold": 1,
+    "passed": true,
+    "details": "Docker depends_on with service_healthy ensures postgres/redis ready before agent starts"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "chaos_experiment",
+    "signature": "035cf1178400db586593b7a2b645a335296ea2f0d3bf41cab5a7cee8f932b378"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "artifact_id": "255c06f6-a57e-43d0-bb42-80e3b228d203",
+  "control_id": "PI-06",
+  "domain": "pipeline-integrity",
+  "procedure": "pipeline-integrity-test.sh",
+  "timestamp": "2026-07-07T17:13:23Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "audit_log_alert_received",
+    "observed_value": 1,
+    "threshold": "1",
+    "passed": true,
+    "details": "Audit log captures alert reception"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "25de1896260eda2e97b5ec549413d802d0215d59f054897a0f6e7eb48843ddd7"
+  }
+}

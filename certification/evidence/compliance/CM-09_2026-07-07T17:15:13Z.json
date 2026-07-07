@@ -1,0 +1,22 @@
+{
+  "artifact_id": "0eadb6d1-e3af-40ad-9248-e509e3e4976c",
+  "control_id": "CM-09",
+  "domain": "compliance",
+  "procedure": "compliance-evidence-test.sh",
+  "timestamp": "2026-07-07T17:15:13Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "pci_log_review",
+    "observed_value": 31,
+    "threshold": ">= 1",
+    "passed": true,
+    "details": "Audit entries are reviewable in structured format"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "evidence_collection",
+    "signature": "825260f701207185bc2e53dbd159cf5b3fcabd9071533183380cfb9964654f0d"
+  }
+}

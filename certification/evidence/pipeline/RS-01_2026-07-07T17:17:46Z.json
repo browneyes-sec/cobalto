@@ -1,0 +1,22 @@
+{
+  "artifact_id": "d62860b0-e855-4f19-bfbb-9dbbb9166e1d",
+  "control_id": "RS-01",
+  "domain": "resilience",
+  "procedure": "chaos-experiments",
+  "timestamp": "2026-07-07T17:17:46Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "pod_failure_restart",
+    "observed_value": 1,
+    "threshold": 1,
+    "passed": true,
+    "details": "Agent restarts cleanly and responds to health checks within 8s. Alert processing works with valid payload."
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "chaos_experiment",
+    "signature": "2655faad36d09bc418bac3fa0e74981f9dbdfbb9cf2523a36ab4040b26a2c032"
+  }
+}

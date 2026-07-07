@@ -1,0 +1,22 @@
+{
+  "artifact_id": "0e386caf-64bb-4842-9060-5f5a33b18265",
+  "control_id": "SC-01",
+  "domain": "security",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:13:30Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "auth_missing_key",
+    "observed_value": 422,
+    "threshold": "401",
+    "passed": false,
+    "details": "Auth may be disabled (dev mode): HTTP 422"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "91c19770968d999b2c7ba8222e428ab3c4c6fca7afc42c31e95db3a58d0c3034"
+  }
+}

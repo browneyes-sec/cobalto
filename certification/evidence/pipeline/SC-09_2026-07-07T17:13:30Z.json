@@ -1,0 +1,22 @@
+{
+  "artifact_id": "7c2d11ab-91d9-433f-b90a-060221d16a5c",
+  "control_id": "SC-09",
+  "domain": "security",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:13:30Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "input_validation",
+    "observed_value": 422,
+    "threshold": "422",
+    "passed": true,
+    "details": "Input validation rejects malformed payload"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "62fb30e923c9e543ac762f571cb007f6cca9e5373a2abc0f8cdd5970ea064724"
+  }
+}

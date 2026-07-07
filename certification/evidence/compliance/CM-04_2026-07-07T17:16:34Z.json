@@ -1,0 +1,22 @@
+{
+  "artifact_id": "d1e8977b-1aa4-4180-baa4-4268931e8c18",
+  "control_id": "CM-04",
+  "domain": "compliance",
+  "procedure": "compliance-evidence-test.sh",
+  "timestamp": "2026-07-07T17:16:34Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "soc2_availability_monitoring",
+    "observed_value": "1",
+    "threshold": "1",
+    "passed": true,
+    "details": "Prometheus langgraph-agent:8080 up=1 (metrics target available)"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "59e8d679c1430b45c3e163434263200d1e622dfcbe43f6cae937d433526a7c00"
+  }
+}

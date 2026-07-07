@@ -1,0 +1,22 @@
+{
+  "artifact_id": "5f7cb52d-6974-4aaf-97af-11df418e27a8",
+  "control_id": "OB-02",
+  "domain": "performance",
+  "procedure": "performance-benchmark.sh",
+  "timestamp": "2026-07-07T17:12:59Z",
+  "status": "fail",
+  "result": {
+    "metric_name": "cobalto_metrics_all_present",
+    "observed_value": 0,
+    "threshold": "9",
+    "passed": false,
+    "details": "Missing 9 metric families"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "7ae289b1416b498c32f7fa6b34d63fdcec0b5a54ffa2a6c8f5b75477d97c617c"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "artifact_id": "76ef3c69-1214-4ed8-8cdf-0083809a6abc",
+  "control_id": "SC-12",
+  "domain": "security",
+  "procedure": "security-controls-test.sh",
+  "timestamp": "2026-07-07T17:13:52Z",
+  "status": "skipped",
+  "result": {
+    "metric_name": "k8s_security_context_nonroot",
+    "observed_value": "dev",
+    "threshold": "non-root",
+    "passed": false,
+    "details": "Requires K8s cluster deployment"
+  },
+  "chain_of_custody": {
+    "runner": "pabl0wsl",
+    "hostname": "LAPTOP-JOSEPABLO",
+    "environment": "dev",
+    "collection_method": "api_call",
+    "signature": "069d86984c8564b54e15e0e7e2db2ff7200c2293dc83e3e42073f44fcceaf04f"
+  }
+}
