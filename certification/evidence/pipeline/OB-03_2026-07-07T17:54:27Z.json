@@ -1,0 +1,22 @@
+{
+  "artifact_id": "938237db-23c7-4d58-a5e1-28a5b2f64993",
+  "control_id": "OB-03",
+  "domain": "observability",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:54:27Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "cobalto_metric_label_cardinality",
+    "observed_value": "17 families, 19 label combinations",
+    "threshold": "Every family has \u22651 label combo",
+    "passed": false,
+    "details": "Metric families: {'cobalto_agent_latency_seconds': 0, 'cobalto_agent_latency_seconds_created': 1, 'cobalto_agent_investigations_total': 1, 'cobalto_agent_investigations_created': 1, 'cobalto_agent_operations_total': 1, 'cobalto_agent_operations_created': 1, 'cobalto_agent_errors_total': 0, 'cobalto_tool_calls_total': 2, 'cobalto_tool_calls_created': 2, 'cobalto_tool_latency_seconds': 0, 'cobalto_tool_latency_seconds_created': 2, 'cobalto_tool_errors_total': 2, 'cobalto_tool_errors_created': 2, 'cobalto_llm_tokens_total': 1, 'cobalto_llm_tokens_created': 1, 'cobalto_alerts_received_total': 1, 'cobalto_alerts_received_created': 1}. Families with 0 data points (lazy): ['cobalto_agent_latency_seconds', 'cobalto_agent_errors_total', 'cobalto_tool_latency_seconds']. All have correct label schemas."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "e3b6c5cc1aa0d363c5194c159b9d0648d5b49abc7f94ead54ae6b3caa7aa629f"
+  }
+}

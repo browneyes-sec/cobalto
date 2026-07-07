@@ -1,0 +1,22 @@
+{
+  "artifact_id": "63e1bdc1-eb0b-47b0-bbd1-fff9ff9e58f9",
+  "control_id": "SC-14",
+  "domain": "security",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:54:27Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "credential_values_in_metrics",
+    "observed_value": "0",
+    "threshold": "0",
+    "passed": true,
+    "details": "/metrics endpoint does not expose secret values. 0 potential matches (all false positives from metric names)."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "26c6afe740fc809731ca7bcaa5f467e03656ba2b0940f214e6e0a42a0abeba3e"
+  }
+}

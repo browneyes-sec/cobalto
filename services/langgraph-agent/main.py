@@ -19,6 +19,7 @@ import time
 import logging
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
 
@@ -26,6 +27,7 @@ from state import AlertPayload
 from graph import agent
 from middleware.auth import AuthMiddleware
 from middleware.audit import AuditLogger
+from middleware.injection_guard import PromptInjectionGuard
 from middleware.rate_limiter import RateLimiter
 from middleware.validator import InputValidator
 from middleware.metrics import metrics
@@ -41,6 +43,16 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# ── CORS ────────────────────────────────────────────────────────────
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["X-API-Key", "Content-Type", "Authorization"],
+)
+
 # ── Middleware Initialization ────────────────────────────────────────
 
 audit_logger = AuditLogger(
@@ -53,6 +65,8 @@ rate_limiter = RateLimiter(
 )
 
 input_validator = InputValidator()
+
+injection_guard = PromptInjectionGuard()
 
 logger = logging.getLogger("cobalto.api")
 
@@ -185,6 +199,19 @@ async def _run_agent_pipeline(payload: AlertPayload, source: str = "wazuh") -> A
             context={"alert_id": payload.get("alert_id", "unknown"), "error": str(e)},
         )
         raise HTTPException(status_code=422, detail=str(e))
+
+    # ── Prompt Injection Guard ──
+    raw_log = payload.get("raw_log", "")
+    if raw_log:
+        try:
+            injection_guard.wrap_for_prompt(raw_log)
+        except ValueError as e:
+            audit_logger.log_error(
+                agent_id="injection_guard",
+                error="prompt_injection_detected",
+                context={"alert_id": payload.get("alert_id", "unknown"), "reason": str(e)},
+            )
+            raise HTTPException(status_code=422, detail=str(e))
 
     # ── Audit: Alert Received ──
     audit_logger.log_alert_received(

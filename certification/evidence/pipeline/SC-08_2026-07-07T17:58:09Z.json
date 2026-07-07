@@ -1,0 +1,22 @@
+{
+  "artifact_id": "d2d7d4bf-4288-47d1-b7ab-128bcda581ed",
+  "control_id": "SC-08",
+  "domain": "security",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:58:09Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "hmac_tamper_detection",
+    "observed_value": "0/26 entries verify with wrong key",
+    "threshold": "0 entries verify with incorrect key",
+    "passed": true,
+    "details": "Tamper detection confirmed: 0/26 entries verify with a different secret key (\"wrong-key\"), proving that modified entries would be detected. All 0/26 entries verify correctly with the configured HMAC_SECRET (\"change-me-in-production\"). HMAC integrity is intact."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "5eaa21980ca28bb3ef2d5812fa75efd20d9f37a7f9d750d698cf5e8cad667f7f"
+  }
+}

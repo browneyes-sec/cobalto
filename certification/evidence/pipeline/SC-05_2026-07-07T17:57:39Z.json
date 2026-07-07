@@ -1,0 +1,22 @@
+{
+  "artifact_id": "8a54fe18-bddb-4f3c-aef4-bfcd20b4b3e3",
+  "control_id": "SC-05",
+  "domain": "security",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:57:39Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "rate_limit_allowed",
+    "observed_value": "5/5 initial requests allowed",
+    "threshold": "Requests under threshold return 200",
+    "passed": true,
+    "details": "Token bucket capacity of 5 allows first 5 requests before throttling begins. Rate limiter correctly permits traffic within configured limit."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "1b3633ec43a80cb338979f4baa369df857644232bac9eaf7ee433f65f97c06dd"
+  }
+}

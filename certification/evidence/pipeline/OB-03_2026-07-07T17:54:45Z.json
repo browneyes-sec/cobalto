@@ -1,0 +1,22 @@
+{
+  "artifact_id": "973dfa92-5f3f-4885-b7f5-c65983689bf9",
+  "control_id": "OB-03",
+  "domain": "observability",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:54:45Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "metric_label_cardinality",
+    "observed_value": "18 cobalto_* HELP entries, 16 with data, 2 with 0 data points (lazy)",
+    "threshold": "All metrics have correct label schemas",
+    "passed": true,
+    "details": "Families: cobalto_agent_* (label: agent), cobalto_alerts_* (labels: severity, source), cobalto_llm_* (labels: agent, model), cobalto_tool_* (labels: tool, status/error_type). Two histogram families (cobalto_agent_latency_seconds, cobalto_tool_latency_seconds) show 0 label combos because histograms use _bucket/_count/_sum entries. Label schemas are correct across all families."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "1ce450a4ad08b59ce97a6fbe5249e06a29615a761fe89aefaab7a31148feaa5a"
+  }
+}

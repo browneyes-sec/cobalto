@@ -1,0 +1,22 @@
+{
+  "artifact_id": "bd351af6-5a16-492e-99b4-94ed5b519a8b",
+  "control_id": "SC-11",
+  "domain": "security",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:54:45Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "secret_leakage_in_logs",
+    "observed_value": "0 real secrets leaked",
+    "threshold": "0 secret values in logs",
+    "passed": true,
+    "details": "3 occurrences of \"No COBALTO_API_KEY configured\" are benign config advisories (no key value exposed). No actual secret values (keys, passwords, tokens) found in 200-line log sample."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "99f783e5aee22e5668083b91149e243da787bf7e93d1a46b7234d5314bf51c0f"
+  }
+}

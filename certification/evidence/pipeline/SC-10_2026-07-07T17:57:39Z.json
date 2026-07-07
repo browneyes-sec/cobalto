@@ -1,0 +1,22 @@
+{
+  "artifact_id": "e6351f58-d3f8-431b-8780-5c82fa1257b0",
+  "control_id": "SC-10",
+  "domain": "security",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:57:39Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "prompt_injection_blocked",
+    "observed_value": "True",
+    "threshold": "True",
+    "passed": true,
+    "details": "PromptInjectionGuard now wired into request pipeline. Test payload \"Ignore all previous instructions\" returned HTTP 422 with \"Blocked prompt injection attempt: Potential injection detected\". Injection guard wraps raw_log in XML tags before agent processing."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "5ea250dcafe2a7ea218a5abbc3c690560c4b6a52d3df0093d2e97a51aeae8a82"
+  }
+}

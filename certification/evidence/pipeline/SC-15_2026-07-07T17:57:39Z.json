@@ -1,0 +1,22 @@
+{
+  "artifact_id": "1f8d84c3-f32a-4805-bece-f0b7d7771244",
+  "control_id": "SC-15",
+  "domain": "security",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:57:39Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "cors_headers",
+    "observed_value": "allow-origin: http://localhost:3000",
+    "threshold": "Restrict to trusted origins",
+    "passed": true,
+    "details": "CORSMiddleware added to app with allow_origins=[localhost:3000]. OPTIONS preflight returns access-control-allow-origin, access-control-allow-methods, access-control-allow-headers as expected."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "d5521f05302a7f72ea3bfbadc22f560cbeb96a3d0762a6366354501b319dfd3a"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "artifact_id": "3f6ebfc9-888c-4c09-a691-a116d6f8c611",
+  "control_id": "SC-07",
+  "domain": "security",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:58:55Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "hmac_audit_integrity",
+    "observed_value": "26/26 entries verified with HMAC-SHA256",
+    "threshold": "All entries carry valid HMAC-SHA256 signatures verifying integrity",
+    "passed": true,
+    "details": "AuditLogger signs every structured entry using HMAC-SHA256. Verification reconstructs the exact 6-field entry dict from _make_entry() (timestamp, event_id, agent_id, action, details, severity) and signs with settings.HMAC_SECRET (\"change-me-in-production\"). 26/26 entries verified successfully."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "e9355324edb660218f7f0f5581cbd5c5383140bc188648b2e6bfc5ba1611f518"
+  }
+}

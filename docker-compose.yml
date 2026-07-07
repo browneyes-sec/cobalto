@@ -196,6 +196,7 @@ services:
       - N8N_URL=http://n8n:5678
       - N8N_API_KEY=change-me
       - JWT_SECRET_KEY=dev-secret-key-change-in-production
+      - RATE_LIMIT_PER_MINUTE=5       # dev: low threshold for rate limiter testability
     ports:
       - "8001:8000"
       - "8081:8080"   # Prometheus metrics

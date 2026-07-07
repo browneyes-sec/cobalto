@@ -1,0 +1,22 @@
+{
+  "artifact_id": "335e5b28-ce1a-4a04-961f-87f0903f0994",
+  "control_id": "OB-04",
+  "domain": "observability",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:54:27Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "structured_json_logs",
+    "observed_value": "49 valid JSON, 49 HMAC signatures",
+    "threshold": "\u22651 valid JSON log entry",
+    "passed": true,
+    "details": "Found 49 valid JSON log entries (out of 49 that start with {), with 49 HMAC signatures."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "5db6cbed7c049946241c25932cbcb5fd3faffda461777d88863ec402e69f1257"
+  }
+}

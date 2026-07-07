@@ -1,0 +1,22 @@
+{
+  "artifact_id": "c1a9ee19-4534-4e99-a149-4094728af90c",
+  "control_id": "PE-10",
+  "domain": "performance",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:54:27Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "process_cpu_seconds_total",
+    "observed_value": 10.8,
+    "threshold": "1.0 core (cumulative)",
+    "passed": true,
+    "details": "CPU metric exists: 10.8s total since process start"
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "23bc8e3ad548fca3acfb7c99fa2924f9e1eec4590e40fbc3c32f0e90cefbcaa8"
+  }
+}

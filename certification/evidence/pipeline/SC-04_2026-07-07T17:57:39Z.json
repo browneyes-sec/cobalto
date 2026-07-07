@@ -1,0 +1,22 @@
+{
+  "artifact_id": "ffb91458-8097-4bd1-9d5f-37da2ed7dadd",
+  "control_id": "SC-04",
+  "domain": "security",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:57:39Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "rate_limit_exceeded",
+    "observed_value": "9/15 requests returned 429",
+    "threshold": "Requests > RPM threshold return 429",
+    "passed": true,
+    "details": "With RATE_LIMIT_PER_MINUTE=5, sending 15 rapid POST requests: first 5 allowed (token bucket capacity), next 9 throttled with HTTP 429. Audit logs confirm 9 rate_limit_exceeded events."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "0f18a8351d6d76e079113fa3513763a40bc8d7371889ac362b301dfb9125bc43"
+  }
+}

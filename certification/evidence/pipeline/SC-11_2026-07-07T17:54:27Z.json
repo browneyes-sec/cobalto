@@ -1,0 +1,22 @@
+{
+  "artifact_id": "470d5db9-2b2e-4864-80e0-785f52145b5d",
+  "control_id": "SC-11",
+  "domain": "security",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:54:27Z",
+  "status": "warn",
+  "result": {
+    "metric_name": "secret_patterns_in_logs",
+    "observed_value": "0",
+    "threshold": "0",
+    "passed": false,
+    "details": "No actual secret values found in docker logs. Patterns found (all benign): ['api_key: 6x', 'API_KEY: 6x']"
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "b35facb35083eb37db73df9b191fd10c86dda67ebafa47a39dd067fd46ed2863"
+  }
+}

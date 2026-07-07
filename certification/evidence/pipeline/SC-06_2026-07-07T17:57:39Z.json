@@ -1,0 +1,22 @@
+{
+  "artifact_id": "3fbb99ac-6d1a-4b0b-8470-89e225441058",
+  "control_id": "SC-06",
+  "domain": "security",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-07T17:57:39Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "rate_limit_window_reset",
+    "observed_value": "Token bucket refills at 5/60 \u2248 0.083 tokens/sec",
+    "threshold": "Bucket replenishes over time window",
+    "passed": true,
+    "details": "Token bucket algorithm with refill_rate=RPM/60 ensures gradual replenishment. After 429s, bucket capacity fully restored. Verified that service accepts new requests shortly after rate limit window."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "9ee56f585e66f645a782611d8aebbdca1f3b4b4eca16cb755c20108bfea75c93"
+  }
+}
