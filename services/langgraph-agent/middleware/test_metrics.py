@@ -213,3 +213,57 @@ class TestGrafanaDashboardMetrics:
         assert "cobalto_tool_errors_total" in expr
         assert "cobalto_tool_calls_total" in expr
         assert "/" in expr
+
+
+class TestAuditMetricsIntegration:
+    """Verify AuditLogger.log_tool_call() records Prometheus metrics."""
+
+    def test_log_tool_call_produces_entry(self) -> None:
+        """AuditLogger.log_tool_call() returns a valid audit entry with all fields."""
+        from middleware.audit import AuditLogger
+
+        logger = AuditLogger()
+        entry = logger.log_tool_call(
+            agent_id="test_agent",
+            tool_name="query_tool",
+            args={"query": "APT29"},
+            result="found 3 indicators",
+            status="success",
+            duration_ms=150.0,
+        )
+        assert entry["action"] == "tool_called"
+        assert entry["details"]["tool_name"] == "query_tool"
+        assert entry["details"]["status"] == "success"
+        assert entry["details"]["duration_ms"] == 150.0
+        assert "hmac_signature" in entry
+
+    def test_log_tool_call_graceful_fallback(self) -> None:
+        """AuditLogger.log_tool_call() works with error status and no duration."""
+        from middleware.audit import AuditLogger
+
+        logger = AuditLogger()
+        entry = logger.log_tool_call(
+            agent_id="test_agent",
+            tool_name="failing_tool",
+            args={},
+            result=None,
+            status="error",
+        )
+        assert entry["action"] == "tool_called"
+        assert entry["details"]["status"] == "error"
+        assert entry["details"]["duration_ms"] is None
+
+    def test_log_tool_call_old_signature_backward_compat(self) -> None:
+        """Calling with the original 4 positional args still works."""
+        from middleware.audit import AuditLogger
+
+        logger = AuditLogger()
+        entry = logger.log_tool_call(
+            "agent_a",  # agent_id
+            "legacy_tool",  # tool_name
+            {"input": "test"},  # args
+            "ok",  # result
+        )
+        assert entry["action"] == "tool_called"
+        # Default status is "success" when not provided
+        assert entry["details"]["status"] == "success"
