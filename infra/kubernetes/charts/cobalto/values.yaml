@@ -12,6 +12,7 @@ langgraph:
     repository: ghcr.io/browneyes-sec/cobalto/langgraph-api
     tag: "latest"
     pullPolicy: IfNotPresent
+  metricsPort: 8080
   service:
     type: ClusterIP
     port: 8000

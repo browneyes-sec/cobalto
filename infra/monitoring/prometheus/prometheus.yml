@@ -7,10 +7,38 @@ scrape_configs:
     static_configs:
       - targets: ["localhost:9090"]
 
-  - job_name: "langgraph-api"
+  - job_name: "langgraph-agent"
     static_configs:
-      - targets: ["langgraph-api:8000"]
+      - targets: ["langgraph-agent:8080"]        # docker-compose hostname
+      - targets: ["langgraph-agent-service:8080"] # k8s service hostname
     metrics_path: /metrics
+    scrape_interval: 10s
+    # Service name in k8s is langgraph-agent-service; metrics served on port 8080
+    # via prometheus_client.start_http_server() AND on port 8000 via FastAPI.
+    # Port 8080 is preferred to separate API traffic from metrics scraping.
+
+  # Auto-discover cobalto pods via prometheus.io/annotations (kubernetes_sd).
+  # Every deployment with prometheus.io/scrape: "true" is scraped automatically.
+  # The langgraph-agent deployment already has these annotations set.
+  - job_name: "kubernetes-pods-cobalto"
+    kubernetes_sd_configs:
+      - role: pod
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - source_labels: [__meta_kubernetes_pod_label_app_kubernetes_io_part_of]
+        action: keep
+        regex: cobalto-soc
 
   - job_name: "n8n"
     static_configs:

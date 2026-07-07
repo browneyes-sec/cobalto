@@ -24,6 +24,10 @@ spec:
         app.kubernetes.io/name: langgraph
         app.kubernetes.io/instance: {{ .Release.Name }}
         app.kubernetes.io/component: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: {{ .Release.Name }}-langgraph
       containers:
@@ -33,6 +37,9 @@ spec:
           ports:
             - name: http
               containerPort: 8000
+              protocol: TCP
+            - name: metrics
+              containerPort: 8080
               protocol: TCP
           env:
             - name: APP_ENV
@@ -97,6 +104,10 @@ spec:
       targetPort: http
       protocol: TCP
       name: http
+    - port: 8080
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
   selector:
     app.kubernetes.io/name: langgraph
     app.kubernetes.io/instance: {{ .Release.Name }}

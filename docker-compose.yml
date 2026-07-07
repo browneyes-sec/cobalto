@@ -174,11 +174,11 @@ services:
       postgres:
         condition: service_healthy
 
-  langgraph-api:
+  langgraph-agent:
     build:
       context: .
-      dockerfile: services/langgraph/Dockerfile
-    container_name: cobalto-langgraph-api
+      dockerfile: services/langgraph-agent/Dockerfile
+    container_name: cobalto-langgraph-agent
     environment:
       - APP_ENV=development
       - DATABASE_URL=postgresql+asyncpg://cobalto:cobalto_local_dev@postgres:5432/cobalto
@@ -198,6 +198,7 @@ services:
       - JWT_SECRET_KEY=dev-secret-key-change-in-production
     ports:
       - "8001:8000"
+      - "8081:8080"   # Prometheus metrics
     volumes:
       - ./frameworks:/app/frameworks
       - ./services:/app/services
