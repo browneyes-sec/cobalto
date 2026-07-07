@@ -68,6 +68,20 @@ elif not settings.COBALTO_DISABLE_AUTH:
     )
 
 
+# ── Prometheus Metrics Server ──────────────────────────────────────
+
+try:
+    from prometheus_client import start_http_server as _start_metrics_server
+
+    _start_metrics_server(8080)
+    logger.info("Prometheus metrics server started on port 8080")
+except Exception:
+    logger.warning(
+        "Could not start Prometheus metrics server on port 8080. "
+        "Metrics are still available via GET /metrics on the API port."
+    )
+
+
 # ── Models ──────────────────────────────────────────────────────────
 
 class AgentResult(BaseModel):
