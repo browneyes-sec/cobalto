@@ -1,0 +1,96 @@
+# Energy Monitoring Service - Docker Compose
+version: "3.8"
+
+services:
+  energy-monitoring:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cobalto-energy-monitoring
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://energy_user:energy_password@postgres:5432/energy_db
+      - REDIS_URL=redis://redis:6379
+      - DEBUG=true
+      - LOG_LEVEL=debug
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  postgres:
+    image: postgres:14-alpine
+    container_name: cobalto-energy-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=energy_db
+      - POSTGRES_USER=energy_user
+      - POSTGRES_PASSWORD=energy_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+  redis:
+    image: redis:7-alpine
+    container_name: cobalto-energy-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+volumes:
+  postgres_data:
+  redis_data:
+
+# Profiles for different deployment scenarios
+profiles:
+  default:
+    services:
+      energy-monitoring:
+      postgres:
+      redis:
+    
+  dev:
+    services:
+      energy-monitoring:
+      postgres:
+      redis:
+    # Same as default for now
+  
+  full:
+    services:
+      energy-monitoring:
+      postgres:
+      redis:
+    # Would add more services here (grafana, prometheus, etc.)
