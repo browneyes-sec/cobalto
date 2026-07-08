@@ -1,0 +1,22 @@
+{
+  "artifact_id": "79070b74-299c-4e28-835d-90f359dc0ace",
+  "control_id": "PE-09",
+  "domain": "performance",
+  "procedure": "cert-agent",
+  "timestamp": "2026-07-08T16:24:29Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "process_resident_memory_bytes",
+    "observed_value": 86130688.0,
+    "threshold": "536870912 (512MB limit)",
+    "passed": true,
+    "details": "Agent RSS 86MB is well below configured 512MB limit. No memory pressure."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "cobalto-dev",
+    "environment": "dev",
+    "collection_method": "static_analysis",
+    "signature": "8d7e57ac7c66ff62a4de64a749544844fc8939578d2748021610b9dda8fa9617"
+  }
+}

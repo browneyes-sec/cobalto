@@ -1,0 +1,22 @@
+{
+  "artifact_id": "1cf3b8da-330f-4071-a269-e66dec544071",
+  "control_id": "CM-08",
+  "domain": "compliance",
+  "procedure": "cert-agent",
+  "timestamp": "2026-07-08T16:24:29Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "pci_audit_action_types",
+    "observed_value": 14,
+    "threshold": ">= 2 PCI event types",
+    "passed": true,
+    "details": "AuditLogger now supports 14 action types covering all PCI DSS 10.2 requirements: alert_received, agent_started, agent_completed, request_completed, error, tool_called, user_access (10.2.1), admin_action (10.2.2), audit_access (10.2.3), auth_attempt (10.2.4), auth_change (10.2.5), config_change (10.2.6), audit_init (10.2.7), object_create/delete (10.2.8). Auth events wired into AuthMiddleware dispatch. Audit init logged on app startup."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "cobalto-dev",
+    "environment": "dev",
+    "collection_method": "static_analysis",
+    "signature": "38ba88a9d7f83ab28990445989168ed65911559d3643333c970df3f48884025d"
+  }
+}

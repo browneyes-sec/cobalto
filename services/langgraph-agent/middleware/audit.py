@@ -247,6 +247,89 @@ class AuditLogger:
             severity="ERROR",
         )
 
+    # ── PCI DSS 10.2 Audit Events ──────────────────────────────────
+
+    def log_user_access(self, user_id: str, resource: str, action: str = "access") -> dict:
+        """Log individual user access to data (PCI DSS 10.2.1)."""
+        return self.log_action(
+            agent_id=user_id,
+            action="user_access",
+            details={"resource": resource, "access_type": action},
+            severity="INFO",
+        )
+
+    def log_admin_action(self, admin_id: str, command: str, target: str) -> dict:
+        """Log actions by administrative users (PCI DSS 10.2.2)."""
+        return self.log_action(
+            agent_id=admin_id,
+            action="admin_action",
+            details={"command": command, "target": target},
+            severity="INFO",
+        )
+
+    def log_audit_access(self, user_id: str, audit_resource: str) -> dict:
+        """Log access to audit trail (PCI DSS 10.2.3)."""
+        return self.log_action(
+            agent_id=user_id,
+            action="audit_access",
+            details={"audit_resource": audit_resource},
+            severity="INFO",
+        )
+
+    def log_auth_attempt(self, user_id: str, source_ip: str, success: bool) -> dict:
+        """Log authentication attempt — success or failure (PCI DSS 10.2.4/10.2.5)."""
+        return self.log_action(
+            agent_id=user_id,
+            action="auth_attempt",
+            details={"source_ip": source_ip, "success": success},
+            severity="INFO" if success else "WARNING",
+        )
+
+    def log_auth_change(self, user_id: str, change_type: str, detail: str) -> dict:
+        """Log changes to authentication mechanisms (PCI DSS 10.2.5)."""
+        return self.log_action(
+            agent_id=user_id,
+            action="auth_change",
+            details={"change_type": change_type, "detail": detail},
+            severity="WARNING",
+        )
+
+    def log_config_change(self, agent_id: str, config_key: str, old_value: str, new_value: str) -> dict:
+        """Log configuration changes (PCI DSS 10.2.6)."""
+        return self.log_action(
+            agent_id=agent_id,
+            action="config_change",
+            details={"key": config_key, "from": old_value, "to": new_value},
+            severity="WARNING",
+        )
+
+    def log_audit_init(self, reason: str = "service_start") -> dict:
+        """Log audit log initialization (PCI DSS 10.2.7)."""
+        return self.log_action(
+            agent_id="system",
+            action="audit_init",
+            details={"reason": reason},
+            severity="INFO",
+        )
+
+    def log_object_create(self, agent_id: str, object_type: str, object_id: str) -> dict:
+        """Log creation of system-level objects (PCI DSS 10.2.8)."""
+        return self.log_action(
+            agent_id=agent_id,
+            action="object_create",
+            details={"object_type": object_type, "object_id": object_id},
+            severity="INFO",
+        )
+
+    def log_object_delete(self, agent_id: str, object_type: str, object_id: str) -> dict:
+        """Log deletion of system-level objects (PCI DSS 10.2.8)."""
+        return self.log_action(
+            agent_id=agent_id,
+            action="object_delete",
+            details={"object_type": object_type, "object_id": object_id},
+            severity="WARNING",
+        )
+
     # ── Tamper Verification ────────────────────────────────────────
 
     def verify_signature(self, entry: dict) -> bool:

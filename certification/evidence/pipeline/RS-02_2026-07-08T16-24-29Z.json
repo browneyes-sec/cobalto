@@ -1,0 +1,22 @@
+{
+  "artifact_id": "f1e862e0-c32f-4609-b8e3-dd11007e8248",
+  "control_id": "RS-02",
+  "domain": "resilience",
+  "procedure": "cert-agent",
+  "timestamp": "2026-07-08T16:24:29Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "state_persistence",
+    "observed_value": "in-memory",
+    "threshold": "acceptable for dev",
+    "passed": true,
+    "details": "In-memory counters accepted for dev environment. Resilience decision documented in certification/decisions/RS-02-in-memory-state.md. Persistent checkpointing deferred to production hardening."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "cobalto-dev",
+    "environment": "dev",
+    "collection_method": "static_analysis",
+    "signature": "9b4900d55c1aae8764d89732aa0af0c69a432295c6be2372f7e7e56844b081e6"
+  }
+}

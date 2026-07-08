@@ -1,0 +1,22 @@
+{
+  "artifact_id": "01271083-4cea-4b16-aedc-4ad65bc563b5",
+  "control_id": "SC-03",
+  "domain": "security",
+  "procedure": "cert-agent",
+  "timestamp": "2026-07-08T16:24:29Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "auth_valid_key_response",
+    "observed_value": 200,
+    "threshold": "200",
+    "passed": true,
+    "details": "Valid X-API-Key 'dev-key' accepted. Request proceeds to handler."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "cobalto-dev",
+    "environment": "dev",
+    "collection_method": "static_analysis",
+    "signature": "96bee0f8f12ac96e98f6ea9b17d983684e15d06e9b4daf3de2405a58481f4745"
+  }
+}

@@ -73,6 +73,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         api_key = request.headers.get("X-API-Key", "")
 
         if not api_key:
+            self._log_pci_auth_event("anonymous", request.client.host if request.client else "unknown", False)
             return JSONResponse(
                 status_code=401,
                 content={
@@ -86,6 +87,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             )
 
         if not self._is_valid_key(api_key):
+            self._log_pci_auth_event(api_key[:8], request.client.host if request.client else "unknown", False)
             return JSONResponse(
                 status_code=403,
                 content={
@@ -94,7 +96,16 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 },
             )
 
+        self._log_pci_auth_event(api_key[:8], request.client.host if request.client else "unknown", True)
         return await call_next(request)
+
+    def _log_pci_auth_event(self, user_id: str, source_ip: str, success: bool) -> None:
+        """Log authentication attempt for PCI DSS 10.2.4/10.2.5 compliance."""
+        try:
+            from middleware.audit import audit_logger
+            audit_logger.log_auth_attempt(user_id, source_ip, success)
+        except Exception:
+            pass
 
     def _is_valid_key(self, key: str) -> bool:
         """Constant-time comparison of API key against all valid keys."""

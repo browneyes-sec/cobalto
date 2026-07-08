@@ -197,6 +197,7 @@ services:
       - N8N_API_KEY=change-me
       - JWT_SECRET_KEY=dev-secret-key-change-in-production
       - RATE_LIMIT_PER_MINUTE=5       # dev: low threshold for rate limiter testability
+      - COBALTO_API_KEY=dev-key       # dev: enables API auth middleware, use "dev-key" for testing
     ports:
       - "8001:8000"
       - "8081:8080"   # Prometheus metrics

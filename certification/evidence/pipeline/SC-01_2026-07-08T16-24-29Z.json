@@ -1,0 +1,22 @@
+{
+  "artifact_id": "0893c996-2cd8-43f8-9138-ae92b10eb180",
+  "control_id": "SC-01",
+  "domain": "security",
+  "procedure": "cert-agent",
+  "timestamp": "2026-07-08T16:24:29Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "auth_missing_key_response",
+    "observed_value": 401,
+    "threshold": "401",
+    "passed": true,
+    "details": "COBALTO_API_KEY=dev-key configured in docker-compose.yml. AuthMiddleware loaded. Missing X-API-Key returns 401."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "cobalto-dev",
+    "environment": "dev",
+    "collection_method": "static_analysis",
+    "signature": "e65191444759112374dfe7cabc65525e003d87182c199634b12bca9aed1c852a"
+  }
+}

@@ -181,6 +181,16 @@ async def audit_and_metrics_middleware(request: Request, call_next):
     return response
 
 
+# ── Lifecycle Events (PCI DSS 10.2.7) ────────────────────────────────
+
+@app.on_event("startup")
+async def startup_event():
+    """Log audit initialization on service startup."""
+    audit_logger.log_audit_init(reason="service_start")
+    audit_logger.log_config_change("system", "COBALTO_API_KEY", "not_set", "configured" if settings.COBALTO_API_KEY else "not_set")
+    logger.info("Audit trail initialized — PCI DSS 10.2.7 compliance enabled")
+
+
 # ── API Endpoints ───────────────────────────────────────────────────
 
 # ── Shared Agent Pipeline ─────────────────────────────────────────────
