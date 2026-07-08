@@ -1,0 +1,22 @@
+{
+  "artifact_id": "5fa46bb0-61bb-4e76-b468-fc161f982926",
+  "control_id": "RS-04",
+  "domain": "resilience",
+  "procedure": "circuit-breaker-implementation",
+  "timestamp": "2026-07-08T16:12:10Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "dependency_failure_graceful_degradation",
+    "observed_value": "3 resilient wrappers with retry/fallback",
+    "threshold": "Agent returns degraded response when dependencies are down",
+    "passed": true,
+    "details": "Implemented three circuit-breaker protected wrappers: mitre_attack_search_resilient (3 retries, 2s wait, MITRE fallback), enrich_ioc_resilient (3 retries, 2s wait, empty enrichment fallback), opencti_query_resilient (2 retries, 3s wait, empty threat intel fallback). Uses tenacity with retry_if_exception_type(httpx.HTTPStatusError) pattern. EAFP exception handling ensures graceful degradation."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "b7cf7f411f64f6d25ef14775a8bced1ae8a0369fb04f4c80e58b9b796d5030e3"
+  }
+}

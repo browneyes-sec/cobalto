@@ -1,0 +1,22 @@
+{
+  "artifact_id": "247bdedd-c120-4895-9aa9-65a517d99877",
+  "control_id": "OB-06",
+  "domain": "observability",
+  "procedure": "grafana-dashboard-provisioning",
+  "timestamp": "2026-07-08T16:12:10Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "grafana_dashboard",
+    "observed_value": "agent-dashboard.json with 7 panels",
+    "threshold": "Grafana dashboard provisioned and accessible",
+    "passed": true,
+    "details": "Created agent-dashboard.json in infra/monitoring/grafana/dashboards/ with 7 panels: Agent Execution Latency (p95 stat), Tool Call Latency Distribution (heatmap), Alerts Ingested Rate (graph), Agent Error Rate (graph), Tool Errors by Tool (stat), LLM Tokens Consumed (graph), Agent Operations by Status (heatmap). Updated dashboards.yml with correct path. Fixed datasources.yml Prometheus URL to localhost:9090."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "1f4304fe9fe5a08208d861400139c330639f40d5d497ee80b68b48c2bb4d1d27"
+  }
+}

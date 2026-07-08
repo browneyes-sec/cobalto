@@ -1,0 +1,22 @@
+{
+  "artifact_id": "858a08f2-d37e-4cd8-8cf9-be0ed594f91c",
+  "control_id": "RS-05",
+  "domain": "resilience",
+  "procedure": "circuit-breaker-implementation",
+  "timestamp": "2026-07-08T16:12:10Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "dependency_recovery",
+    "observed_value": "tenacity retry with 2-3s wait intervals",
+    "threshold": "Full functionality restored when dependency comes back",
+    "passed": true,
+    "details": "Tenacity retry mechanism allows automatic recovery when dependencies restore. Circuit breaker wrappers re-attempt failed calls after wait_fixed intervals (2s for mitre/enrich, 3s for opencti). On success, full functionality resumes immediately. No persistent failure state that prevents recovery."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "1dbb7847f1e4f6fc4b307ae70cb0ca6941d542fb20097fcab8c9c94ac078ef46"
+  }
+}

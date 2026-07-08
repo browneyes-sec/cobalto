@@ -56,7 +56,11 @@ async def analysis_agent(state: SOCAgentState) -> dict:
 
 
 async def threat_intel_agent(state: SOCAgentState) -> dict:
-    from tools import mitre_attack_search, enrich_ioc, opencti_query
+    from tools import (
+        mitre_attack_search_resilient,
+        enrich_ioc_resilient,
+        opencti_query_resilient,
+    )
 
     alert = state.get("alert", {})
     mitre_techniques = state.get("mitre_techniques", [])
@@ -65,7 +69,7 @@ async def threat_intel_agent(state: SOCAgentState) -> dict:
     threat_actor_matches = []
     for technique in mitre_techniques:
         try:
-            results = await mitre_attack_search(technique)
+            results = await mitre_attack_search_resilient(technique)
             threat_actor_matches.extend(results)
         except Exception:
             pass
@@ -73,12 +77,12 @@ async def threat_intel_agent(state: SOCAgentState) -> dict:
     ioc_enrichment = {}
     if source_ip:
         try:
-            ioc_enrichment = await enrich_ioc(source_ip)
+            ioc_enrichment = await enrich_ioc_resilient(source_ip)
         except Exception:
             ioc_enrichment = {"status": "enrichment_failed"}
 
     try:
-        opencti_results = await opencti_query(f"[ip-addr:value = '{source_ip}']")
+        opencti_results = await opencti_query_resilient(f"[ip-addr:value = '{source_ip}']")
         if opencti_results:
             ioc_enrichment["opencti"] = opencti_results
     except Exception:

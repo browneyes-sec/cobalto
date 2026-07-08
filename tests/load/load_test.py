@@ -678,3 +678,189 @@ async def run_burst_test(
         "status": result.status.value,
         "analysis": analysis,
     }
+
+
+# ── Endurance Test (RS-09/RS-10) ───────────────────────────────────────────
+
+@dataclass
+class EnduranceConfig:
+    """Configuration for endurance tests (100+ alert cycles)."""
+    cycles: int = 100
+    interval_seconds: float = 1.0
+    target_url: str = "http://localhost:8001"
+    track_metrics: bool = True
+    track_memory: bool = True
+    alert_templates: List[AlertTemplate] = field(default_factory=lambda: DEFAULT_ALERT_TEMPLATES[:3])
+
+
+@dataclass
+class EnduranceSnapshot:
+    """Single endurance test checkpoint."""
+    cycle: int
+    timestamp: float
+    success: bool
+    latency_ms: float
+    memory_mb: Optional[float] = None
+    metric_cardinality: Optional[int] = None
+    error: Optional[str] = None
+
+
+@dataclass
+class EnduranceResult:
+    """Result of endurance test run."""
+    config: EnduranceConfig
+    snapshots: List[EnduranceSnapshot] = field(default_factory=list)
+    started_at: float = 0.0
+    completed_at: Optional[float] = None
+
+    @property
+    def total_cycles(self) -> int:
+        return len(self.snapshots)
+
+    @property
+    def success_count(self) -> int:
+        return sum(1 for s in self.snapshots if s.success)
+
+    @property
+    def success_rate(self) -> float:
+        return (self.success_count / self.total_cycles * 100) if self.total_cycles > 0 else 0.0
+
+    @property
+    def first_cycle_latency_ms(self) -> Optional[float]:
+        return self.snapshots[0].latency_ms if self.snapshots else None
+
+    @property
+    def last_cycle_latency_ms(self) -> Optional[float]:
+        return self.snapshots[-1].latency_ms if self.snapshots else None
+
+    @property
+    def memory_stable(self) -> Optional[bool]:
+        """Memory is stable if it doesn't grow more than 10% over the run."""
+        mems = [s.memory_mb for s in self.snapshots if s.memory_mb is not None]
+        if len(mems) >= 2:
+            growth = (mems[-1] - mems[0]) / mems[0] * 100 if mems[0] > 0 else 0
+            return growth < 10
+        return None
+
+    @property
+    def has_memory_leak(self) -> Optional[bool]:
+        mems = [s.memory_mb for s in self.snapshots if s.memory_mb is not None]
+        if len(mems) >= 2:
+            return mems[-1] > mems[0] * 1.1
+        return None
+
+
+async def run_endurance_test(config: Optional[EnduranceConfig] = None) -> EnduranceResult:
+    """Run endurance test: send alerts in cycles, track latency/memory/cardinality."""
+    config = config or EnduranceConfig()
+    result = EnduranceResult(config=config, started_at=time.time())
+
+    async with httpx.AsyncClient() as client:
+        for cycle in range(config.cycles):
+            template = random.choice(config.alert_templates)
+            src_ip = f"10.0.{random.randint(0, 255)}.{random.randint(1, 254)}"
+            snapshot = EnduranceSnapshot(cycle=cycle, timestamp=time.time(), success=False, latency_ms=0)
+
+            try:
+                alert_start = time.time()
+                response = await client.post(
+                    f"{config.target_url}/agent/analyze",
+                    json={
+                        "alert_id": f"endurance-{cycle}",
+                        "rule_id": template.rule_id,
+                        "rule_description": template.rule_description,
+                        "alert_level": template.rule_level,
+                        "source_ip": src_ip,
+                        "dest_ip": "10.0.0.1",
+                        "agent_name": f"endurance-agent",
+                        "timestamp": datetime.utcnow().isoformat(),
+                        "raw_log": template.rule_description,
+                    },
+                    timeout=5.0,
+                )
+                elapsed = (time.time() - alert_start) * 1000
+                snapshot.latency_ms = round(elapsed, 2)
+                snapshot.success = response.status_code < 500
+            except httpx.TimeoutException:
+                snapshot.error = "timeout"
+            except Exception as e:
+                snapshot.error = str(e)[:100]
+
+            # Track memory from /metrics every 10 cycles
+            if config.track_memory and cycle % 10 == 0:
+                try:
+                    resp = await client.get(f"{config.target_url}/metrics", timeout=3.0)
+                    text = resp.text
+                    for line in text.split("\n"):
+                        if "process_resident_memory_bytes" in line and not line.startswith("#"):
+                            val = float(line.strip().split()[-1])
+                            snapshot.memory_mb = round(val / 1024 / 1024, 1)
+                        if "cobalto_" in line and not line.startswith("#"):
+                            if snapshot.metric_cardinality is None:
+                                snapshot.metric_cardinality = 0
+                            snapshot.metric_cardinality += 1
+                except Exception:
+                    pass
+
+            result.snapshots.append(snapshot)
+
+            if cycle < config.cycles - 1:
+                await asyncio.sleep(config.interval_seconds)
+
+    result.completed_at = time.time()
+    return result
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Cobalto Load Testing Framework")
+    parser.add_argument("--mode", choices=["burst", "sustained", "endurance"], default="endurance",
+                        help="Test mode (default: endurance)")
+    parser.add_argument("--cycles", type=int, default=100,
+                        help="Number of alert cycles (endurance mode)")
+    parser.add_argument("--interval", type=float, default=1.0,
+                        help="Seconds between cycles (endurance mode)")
+    parser.add_argument("--burst-size", type=int, default=1000,
+                        help="Alerts per burst (burst mode)")
+    parser.add_argument("--burst-interval", type=int, default=60,
+                        help="Seconds between bursts (burst mode)")
+    parser.add_argument("--burst-count", type=int, default=5,
+                        help="Number of bursts (burst mode)")
+    parser.add_argument("--duration", type=int, default=300,
+                        help="Test duration in seconds (sustained mode)")
+    parser.add_argument("--concurrent", type=int, default=50,
+                        help="Concurrent users (sustained mode)")
+    parser.add_argument("--target", type=str, default="http://localhost:8001",
+                        help="Target URL")
+    parser.add_argument("--rps", type=int, default=10000,
+                        help="Target requests per hour")
+    args = parser.parse_args()
+
+    async def main():
+        if args.mode == "endurance":
+            config = EnduranceConfig(
+                cycles=args.cycles,
+                interval_seconds=args.interval,
+                target_url=args.target,
+            )
+            result = await run_endurance_test(config)
+            duration = (result.completed_at - result.started_at) if result.completed_at else 0
+            print(f"\n=== Endurance Test Results ===")
+            print(f"Cycles: {result.total_cycles}/{args.cycles}")
+            print(f"Success: {result.success_count}/{result.total_cycles} ({result.success_rate:.1f}%)")
+            print(f"Duration: {duration:.1f}s")
+            print(f"First cycle latency: {result.first_cycle_latency_ms}ms")
+            print(f"Last cycle latency: {result.last_cycle_latency_ms}ms")
+            has_leak = result.has_memory_leak
+            print(f"Memory leak: {'⚠️  DETECTED' if has_leak else '✅ None detected'}")
+            print(f"Memory stable: {'✅' if result.memory_stable else '⚠️  Unstable' if result.memory_stable is not None else 'N/A'}")
+            print(f"Errors: {[s.error for s in result.snapshots if s.error][:5]}")
+        elif args.mode == "burst":
+            result = await run_burst_test(args.target, args.burst_size, args.burst_interval, args.burst_count)
+            print(json.dumps(result, indent=2, default=str))
+        elif args.mode == "sustained":
+            result = await run_load_test(args.target, args.rps, args.duration, args.concurrent)
+            print(json.dumps(result, indent=2, default=str))
+
+    asyncio.run(main())

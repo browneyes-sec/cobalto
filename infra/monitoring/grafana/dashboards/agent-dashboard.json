@@ -1,0 +1,138 @@
+{
+  "dashboard": {
+    "title": "Cobalto Agent Performance",
+    "tags": ["cobalto", "agent", "performance"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Agent Execution Latency (p95)",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, cobalto_agent_latency_seconds_bucket)",
+            "legendFormat": "{{agent}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 2.0},
+                {"color": "red", "value": 5.0}
+              ]
+            },
+            "unit": "s"
+          }
+        },
+        "options": {
+          "colorMode": "background",
+          "graphMode": "none",
+          "valueMode": "auto"
+        }
+      },
+      {
+        "id": 2,
+        "title": "Tool Call Latency Distribution",
+        "type": "heatmap",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "count by (tool) (cobalto_tool_calls_total)",
+            "legendFormat": "{{tool}}",
+            "refId": "A"
+          }
+        ],
+        "heatmap": {"calculate": true, "legend": {"show": true}},
+        "color": {"mode": "spectrum"}
+      },
+      {
+        "id": 3,
+        "title": "Alerts Ingested Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(cobalto_alerts_received_total[5m])",
+            "legendFormat": "{{source}} {{severity}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [{"label": "Alerts/second"}, {"label": ""}]
+      },
+      {
+        "id": 4,
+        "title": "Agent Error Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "rate(cobalto_agent_errors_total[5m])",
+            "legendFormat": "{{agent}} {{error_type}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [{"label": "Errors/second"}, {"label": ""}]
+      },
+      {
+        "id": 5,
+        "title": "Tool Errors by Tool",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "cobalto_tool_errors_total",
+            "legendFormat": "{{tool}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": null},
+                {"color": "yellow", "value": 5},
+                {"color": "red", "value": 10}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "LLMs Tokens Consumed",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "rate(cobalto_llm_tokens_total[5m])",
+            "legendFormat": "{{model}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [{"label": "Tokens/second"}, {"label": ""}]
+      },
+      {
+        "id": 7,
+        "title": "Agent Operations by Status",
+        "type": "heatmap",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32},
+        "targets": [
+          {
+            "expr": "cobalto_agent_operations_total",
+            "legendFormat": "{{agent}} {{status}}",
+            "refId": "A"
+          }
+        ],
+        "heatmap": {"calculate": true, "legend": {"show": true}}
+      }
+    ],
+    "time": {"from": "now-1h", "to": "now"},
+    "refresh": "30s"
+  }
+}

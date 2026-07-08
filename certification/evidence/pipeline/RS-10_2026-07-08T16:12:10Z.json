@@ -1,0 +1,22 @@
+{
+  "artifact_id": "5c96342f-18c8-4fa5-9d11-393dc5b28ee2",
+  "control_id": "RS-10",
+  "domain": "resilience",
+  "procedure": "endurance-test-framework",
+  "timestamp": "2026-07-08T16:12:10Z",
+  "status": "skipped",
+  "result": {
+    "metric_name": "metric_leak_endurance",
+    "observed_value": "Metric cardinality tracking built into endurance test",
+    "threshold": "Metric cardinality stable over 100+ alert cycles",
+    "passed": null,
+    "details": "Endurance test framework tracks cobalto_* metric count every 10 cycles. CLI entry point supports --mode endurance --cycles 100 --interval 1.0. Actual 100-cycle execution requires LLM backend running and may take ~2-5 minutes at 1s intervals."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "b0c5f92b8cbfff870459a3e1ce842d4133791dbb874a80ad43edc1355804514f"
+  }
+}

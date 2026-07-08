@@ -1,0 +1,22 @@
+{
+  "artifact_id": "1bbd33a1-2cec-464a-b94a-443beece16bd",
+  "control_id": "RS-06",
+  "domain": "resilience",
+  "procedure": "resource-limits-configuration",
+  "timestamp": "2026-07-08T16:12:10Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "memory_limit_mb",
+    "observed_value": "512 MB (536870912 bytes)",
+    "threshold": "Memory limit configured to prevent OOM",
+    "passed": true,
+    "details": "Memory limit of 512MB and reservation of 256MB configured in docker-compose.yml deploy.resources section for langgraph-agent service. CPU limited to 0.5 cores with 0.25 reservation. Verified via docker inspect: HostConfig.Memory = 536870912 (512MB)."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "b4cb6b8ea1f48d4476e2ea14ea1d832f0c4229182cd192f9320b7977514d5c6f"
+  }
+}

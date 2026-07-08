@@ -1,0 +1,22 @@
+{
+  "artifact_id": "2d36f621-8d03-4a14-ba9f-d4370437b9a0",
+  "control_id": "RS-09",
+  "domain": "resilience",
+  "procedure": "endurance-test-framework",
+  "timestamp": "2026-07-08T16:12:10Z",
+  "status": "skipped",
+  "result": {
+    "metric_name": "memory_leak_endurance",
+    "observed_value": "100+ cycle endurance test framework built",
+    "threshold": "Memory stable over 100+ alert cycles",
+    "passed": null,
+    "details": "Endurance test framework built in tests/load/load_test.py with EnduranceConfig, EnduranceSnapshot, EnduranceResult, and run_endurance_test() supporting 100+ cycles with memory and metric cardinality tracking. Memory stability verified if growth < 10%. Actual 100-cycle run requires LLM connectivity and sustained execution time."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "87f6e5fc1055cb52fc9a2c787a740634946fd08990952f37ed8cde3df461319e"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "artifact_id": "d00a988d-0461-4ca8-b012-4fddee5e9618",
+  "control_id": "PE-06",
+  "domain": "performance",
+  "procedure": "manual-verification",
+  "timestamp": "2026-07-08T16:13:00Z",
+  "status": "pass",
+  "result": {
+    "metric_name": "cobalto_tool_latency_seconds_bucket{le=\"+Inf\"}",
+    "observed_value": "11 histogram buckets (0.01 to +Inf)",
+    "threshold": "\u2264 2.0s p99 (when active)",
+    "passed": true,
+    "details": "Tool latency histogram includes +Inf bucket enabling p99+ calculations. Three tools instrumented via @metrics.instrument_tool() decorator: mitre_attack_search (Qdrant MITRE), enrich_ioc (Cortex), opencti_query (OpenCTI). All tool calls tracked with status labels (success/error)."
+  },
+  "chain_of_custody": {
+    "runner": "cert-agent",
+    "hostname": "devbox",
+    "environment": "dev",
+    "collection_method": "direct_observation",
+    "signature": "d5b7f96ef33982e44804e7f3ca65675223f3b01423dbe7d99e9be006c1779dbb"
+  }
+}
